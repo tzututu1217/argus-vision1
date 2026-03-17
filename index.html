@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ARGUS - 完整盲操作旗艦版</title>
+    <title>ARGUS 3.0 究極完全體</title>
 
     <style>
         :root { 
@@ -33,66 +33,64 @@
             width: 92%;
             text-align: center;
             border: 1px solid #1e293b;
-            pointer-events: none;
         }
+        
+        /* 藍牙連線按鈕專屬樣式 */
+        #connectBtn {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            width: 100%;
+            margin-bottom: 15px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            position: relative;
+            z-index: 10;
+        }
+        #connectBtn:active { background: #1d4ed8; }
+
         #log {
-            pointer-events: auto;
             background: #0005;
             padding: 15px;
             border-radius: 15px;
             max-height: 200px;
             overflow-y: auto;
+            margin-top: 15px;
         }
-        .highlight { 
-            color: #fff; 
-            font-weight: bold; 
-        }
-        .shop-item { 
-            padding: 6px 0; 
-            border-bottom: 1px solid #1e293b; 
-        }
+        .highlight { color: #fff; font-weight: bold; }
+        .shop-item { padding: 6px 0; border-bottom: 1px solid #1e293b; }
     </style>
 </head>
 
 <body>
-    <div class="card">
-        <h2>👁 ARGUS 3.0辨識系統</h2>
+    <div class="card" id="touchArea">
+        <h2>👁 ARGUS 3.0 完全體</h2>
+        
+        <button id="connectBtn">🔗 點此連接超音波導盲杖</button>
         <div id="statusTxt">系統啟動中...</div>
 
         <div style="height: 260px; background: #000; border-radius: 20px; margin: 15px 0; overflow: hidden;">
             <video id="webcam" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
         </div>
 
-        <div id="log">等待指令...</div>
+        <div id="log">等待指令...<br><small>(支援手勢盲操作)</small></div>
         <canvas id="canvas" style="display: none;"></canvas>
     </div>
 
     <script>
-        /* === 核心修正：API KEY 隱私輸入與記憶機制 === */
-        let KEY = localStorage.getItem("argus_api_key");
-        if (!KEY) {
-            KEY = prompt("為了防止 GitHub 警報，請輸入您的 Gemini API Key：");
-            if (KEY) localStorage.setItem("argus_api_key", KEY);
-        }
-
-        // 隱藏重設功能：快速連點畫面 10 下可清除金鑰
-        let resetCounter = 0;
-        document.body.addEventListener('click', () => {
-            resetCounter++;
-            if (resetCounter === 10) {
-                localStorage.removeItem("argus_api_key");
-                alert("金鑰已從裝置清除，請刷新網頁重新設定。");
-                location.reload();
-            }
-            setTimeout(() => { resetCounter = 0; }, 3000);
-        });
-
-        const MODEL = "gemini-2.5-flash"; // 依要求改回 2.5 版本
+        // ⚠️ 已經幫你放入最新的 API KEY
+        const KEY = "AIzaSyDLgSHUKj5oL8lfM2q9Ajc2D2BsWHQf9-k"; 
+        const MODEL = "gemini-2.5-flash";
 
         const video = document.getElementById("webcam");
         const canvas = document.getElementById("canvas");
         const log = document.getElementById("log");
         const statusTxt = document.getElementById("statusTxt");
+        const connectBtn = document.getElementById("connectBtn");
 
         let currentFacingMode = "environment";
         let currentStream = null;
@@ -104,28 +102,23 @@
         let clickTimer = null;
         let speechQueue = [];
         let speaking = false;
-        
         let hasPlayedIntro = false; 
 
         /* ================= 語音系統 ================= */
-
-        function speak(text) {
-            speechQueue.push(text);
+        function speak(text, rate = 1.05) {
+            speechQueue.push({text, rate});
             processSpeech();
         }
 
         function processSpeech() {
             if (speaking || speechQueue.length === 0) return;
             speaking = true;
-
-            const text = speechQueue.shift();
-            const u = new SpeechSynthesisUtterance(text);
+            
+            const item = speechQueue.shift();
+            const u = new SpeechSynthesisUtterance(item.text);
             u.lang = "zh-TW";
-            u.rate = 1.05;
-            u.onend = () => {
-                speaking = false;
-                processSpeech();
-            };
+            u.rate = item.rate;
+            u.onend = () => { speaking = false; processSpeech(); };
             window.speechSynthesis.speak(u);
         }
 
@@ -135,35 +128,34 @@
             speaking = false;
         }
 
-        /* ================= 開機播報 ================= */
-
         function introGuide() {
             speak("系統已啟動。");
-            speak("單擊畫面辨識前方物體。");
-            speak("雙擊切換鏡頭。");
-            speak("三擊開啟或關閉自動辨識。");
-            speak("長按兩秒掃描附近店家。");
+            speak("請點擊最上方按鈕連接導盲杖。");
+            speak("或單擊畫面辨識前方物體，長按兩秒掃描附近店家。");
         }
 
-        /* ================= 相機 ================= */
-
+        /* ================= 相機 (自動降落傘) ================= */
         async function startCamera(mode) {
-            if (currentStream) {
-                currentStream.getTracks().forEach(t => t.stop());
-            }
+            if (currentStream) currentStream.getTracks().forEach(t => t.stop());
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: mode } });
                 video.srcObject = stream;
                 currentStream = stream;
                 video.style.transform = mode === "user" ? "scaleX(-1)" : "scaleX(1)";
-                statusTxt.innerText = "● 系統就緒";
+                statusTxt.innerText = "● 軟體系統就緒";
                 
                 if (!hasPlayedIntro) {
                     setTimeout(introGuide, 800);
                     hasPlayedIntro = true; 
                 }
-            } catch {
-                log.innerHTML = "❌ 無法存取相機";
+            } catch (err) {
+                if (mode === "environment") {
+                    console.log("切換為前鏡頭");
+                    currentFacingMode = "user";
+                    startCamera("user"); 
+                } else {
+                    log.innerHTML = "❌ 無法存取相機";
+                }
             }
         }
         startCamera(currentFacingMode);
@@ -174,14 +166,57 @@
             stopSpeech();
             speak("已切換鏡頭");
         }
+        /* ================= 藍牙連線：ESP32 硬體防護 ================= */
+        connectBtn.addEventListener('click', async (e) => {
+            e.stopPropagation(); // 阻止事件往下傳遞，避免觸發背景的單擊拍照
+            
+            try {
+                statusTxt.innerText = "🔍 正在搜尋導盲杖...";
+                
+                const device = await navigator.bluetooth.requestDevice({
+                    filters: [{ name: 'ARGUS_Device' }],
+                    optionalServices: ['12345678-1234-5678-1234-56789abcdef0']
+                });
 
-        /* ================= 影像辨識 (修正必要 API 語法) ================= */
+                const server = await device.gatt.connect();
+                const service = await server.getPrimaryService('12345678-1234-5678-1234-56789abcdef0');
+                const char = await service.getCharacteristic('abcdef01-1234-5678-1234-56789abcdef0');
 
-        async function analyze() {
-            if (isProcessing || !KEY) return;
+                await char.startNotifications();
+                
+                // 收到硬體的 WARNING 時，觸發緊急分析
+                char.addEventListener('characteristicvaluechanged', (event) => {
+                    const msg = new TextDecoder().decode(event.target.value);
+                    if (msg === "WARNING" && !isProcessing) {
+                        analyze(true); // true 代表這是緊急硬體觸發
+                    }
+                });
+
+                statusTxt.innerHTML = "🟢 <span style='color:var(--green);'>硬體防護已連線</span>";
+                connectBtn.innerText = "✅ 導盲杖已連接";
+                connectBtn.style.background = "#10b981";
+                speak("導盲杖連接成功，全面防護啟動");
+            } catch (err) { 
+                statusTxt.innerText = "🔴 連線失敗，請重試"; 
+            }
+        });
+
+        /* ================= 影像辨識 (雙模式 AI 大腦) ================= */
+        // isEmergency: true = 來自超音波的警告 / false = 來自螢幕的單擊
+        async function analyze(isEmergency = false) {
+            if (isProcessing) return;
+            if (video.videoWidth === 0) { speak("相機準備中"); return; }
+
             stopSpeech();
             isProcessing = true;
-            log.innerHTML = "🧠 正在解析影像...";
+            
+            if (isEmergency) {
+                log.innerHTML = "🚨 <span style='color:red;'>硬體警告！</span> 正在分析威脅...";
+                speak("警告，偵測到障礙物", 1.2); // 緊急時語速加快
+            } else {
+                log.innerHTML = "🧠 正在解析影像...";
+                speak("正在分析");
+            }
 
             const ctx = canvas.getContext("2d");
             canvas.width = video.videoWidth;
@@ -189,54 +224,59 @@
             ctx.drawImage(video, 0, 0);
             const base64 = canvas.toDataURL("image/jpeg", 0.8).split(",")[1];
 
-            // 修正：必須使用反引號讓 ${} 語法生效
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${KEY}`;
+            // 雙模式的提示詞設定
+            const promptText = isEmergency 
+                ? "緊急狀況：請用10個字以內，告訴我正前方逼近的物體是什麼？並給出簡短避開建議。"
+                : "請用10字內描述前方最重要物體方位";
 
             try {
-                const res = await fetch(apiUrl, {
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${KEY}`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
                         contents: [{
                             parts: [
-                                { text: "請用10字內描述前方最重要物體方位" },
-                                // 修正：inlineData 為標準參數名稱
+                                { text: promptText },
                                 { inlineData: { mimeType: "image/jpeg", data: base64 } }
                             ]
                         }]
                     })
                 });
+                
+                if (!res.ok) throw new Error("API 錯誤");
+
                 const data = await res.json();
                 const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "無法辨識";
                 log.innerHTML = `<span class="highlight">${text}</span>`;
-                speak(text);
+                
+                // 根據情況用不同語速播報
+                speak(text, isEmergency ? 1.2 : 1.05); 
             } catch {
                 log.innerHTML = "❌ 辨識失敗";
+                speak(isEmergency ? "前方危險，請立即停下" : "辨識失敗");
             }
-            isProcessing = false;
-        }
-
-        /* ================= 店家掃描 ================= */
-
+            
+            // 防連刷冷卻時間：緊急狀態冷卻較久避免太吵
+            setTimeout(() => { isProcessing = false; }, isEmergency ? 4000 : 2000);
+}
+        /* ================= 店家掃描 (長按觸發) ================= */
         async function locate() {
             if (isProcessing) return;
             stopSpeech();
             isProcessing = true;
             log.innerHTML = "🛰️ 正在掃描周邊...";
+            speak("正在定位周邊設施");
 
             navigator.geolocation.getCurrentPosition(async (pos) => {
                 const { latitude: lat, longitude: lon } = pos.coords;
-
                 try {
                     const query = `[out:json];(node(around:200,${lat},${lon})["name"]["shop"];node(around:200,${lat},${lon})["name"]["amenity"];);out;`;
                     const osmRes = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`);
                     const osmJson = await osmRes.json();
 
                     if (!osmJson.elements.length) {
-                        speak("附近沒有店家");
-                        log.innerHTML = "附近沒有店家";
-                        isProcessing = false;
-                        return;
+                        speak("附近沒有店家"); log.innerHTML = "附近沒有店家";
+                        isProcessing = false; return;
                     }
 
                     let names = [];
@@ -250,21 +290,18 @@
                     });
                     log.innerHTML = html;
 
-                    speak(`附近共有${names.length}間店家`);
-                    names.forEach((n, i) => {
-                        speak(`${n}`);
-                    });
+                    speak(`附近共有${names.length}間設施`);
+                    names.forEach(n => speak(n));
 
-                } catch {
-                    log.innerHTML = "❌ 掃描失敗";
-                }
+                } catch { log.innerHTML = "❌ 掃描失敗"; speak("掃描失敗"); }
                 isProcessing = false;
             });
         }
 
-        /* ================= 手勢控制邏輯 ================= */
-
+        /* ================= 全螢幕盲操作手勢 ================= */
         document.body.addEventListener("pointerdown", (e) => {
+            if (e.target.id === 'connectBtn') return; // 按到藍牙按鈕時不計時
+            
             isLongPress = false; 
             pressTimer = setTimeout(() => {
                 isLongPress = true; 
@@ -273,33 +310,25 @@
         });
 
         document.body.addEventListener("pointerup", (e) => {
-            clearTimeout(pressTimer); 
+            if (e.target.id === 'connectBtn') return; // 按到藍牙按鈕時不觸發
             
-            if (isLongPress) {
-                return; 
-            }
+            clearTimeout(pressTimer); 
+            if (isLongPress) return; 
 
             clickCount++;
             clearTimeout(clickTimer); 
 
             clickTimer = setTimeout(() => {
-                if (clickCount === 1) {
-                    analyze(); 
-                } 
-                else if (clickCount === 2) {
-                    switchCamera(); 
-                } 
-                else if (clickCount >= 3) {
+                if (clickCount === 1) analyze(false);      // 單擊：一般探索
+                else if (clickCount === 2) switchCamera(); // 雙擊：切換鏡頭
+                else if (clickCount >= 3) {                // 三擊：自動巡航
                     if (autoInterval) {
-                        clearInterval(autoInterval);
-                        autoInterval = null;
-                        speak("自動辨識已關閉");
-                        log.innerHTML = "自動辨識：<span style='color:red;'>關閉</span>";
+                        clearInterval(autoInterval); autoInterval = null;
+                        speak("自動辨識已關閉"); log.innerHTML = "自動辨識：關閉";
                     } else {
-                        autoInterval = setInterval(analyze, 15000);
-                        speak("自動辨識已開啟");
-                        log.innerHTML = "自動辨識：<span style='color:var(--green);'>開啟</span>";
-                        analyze(); 
+                        autoInterval = setInterval(() => analyze(false), 15000);
+                        speak("自動辨識已開啟"); log.innerHTML = "自動辨識：開啟";
+                        analyze(false); 
                     }
                 }
                 clickCount = 0; 
@@ -308,3 +337,4 @@
     </script>
 </body>
 </html>
+        
