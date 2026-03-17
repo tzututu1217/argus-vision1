@@ -3,54 +3,78 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ARGUS 3.0 究極完全體</title>
+    <title>ARGUS - 完整盲操作旗艦版</title>
+
     <style>
-        :root { --bg: #020617; --card: #0f172a; --accent: #38bdf8; --green: #10b981; }
-        body { font-family: system-ui; background: var(--bg); color: #f8fafc; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; overflow: hidden; touch-action: none; user-select: none; }
-        .card { background: var(--card); padding: 25px; border-radius: 30px; max-width: 440px; width: 92%; text-align: center; border: 1px solid #1e293b; }
-        #connectBtn { background: #2563eb; color: white; border: none; padding: 12px 20px; border-radius: 12px; font-size: 16px; font-weight: bold; width: 100%; margin-bottom: 15px; cursor: pointer; position: relative; z-index: 10; }
-        #log { background: #0005; padding: 15px; border-radius: 15px; max-height: 200px; overflow-y: auto; margin-top: 15px; }
-        .highlight { color: #fff; font-weight: bold; }
-        .shop-item { padding: 6px 0; border-bottom: 1px solid #1e293b; }
+        :root { 
+            --bg: #020617; 
+            --card: #0f172a; 
+            --accent: #38bdf8; 
+            --green: #10b981; 
+        }
+        body {
+            font-family: system-ui;
+            background: var(--bg);
+            color: #f8fafc;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            touch-action: none;
+            user-select: none;
+        }
+        .card {
+            background: var(--card);
+            padding: 25px;
+            border-radius: 30px;
+            max-width: 440px;
+            width: 92%;
+            text-align: center;
+            border: 1px solid #1e293b;
+            pointer-events: none;
+        }
+        #log {
+            pointer-events: auto;
+            background: #0005;
+            padding: 15px;
+            border-radius: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .highlight { 
+            color: #fff; 
+            font-weight: bold; 
+        }
+        .shop-item { 
+            padding: 6px 0; 
+            border-bottom: 1px solid #1e293b; 
+        }
     </style>
 </head>
+
 <body>
-    <div class="card" id="touchArea">
-        <h2>👁 ARGUS 3.0 完全體</h2>
-        <button id="connectBtn">🔗 點此連接超音波導盲杖</button>
+    <div class="card">
+        <h2>👁 ARGUS 3.0辨識系統</h2>
         <div id="statusTxt">系統啟動中...</div>
+
         <div style="height: 260px; background: #000; border-radius: 20px; margin: 15px 0; overflow: hidden;">
             <video id="webcam" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
         </div>
+
         <div id="log">等待指令...</div>
         <canvas id="canvas" style="display: none;"></canvas>
     </div>
 
     <script>
-        let KEY = localStorage.getItem("argus_api_key");
-        if (!KEY) {
-            KEY = prompt("請輸入您的 Gemini API Key：");
-            if (KEY) localStorage.setItem("argus_api_key", KEY);
-        }
+        const KEY = "AIzaSyARn44KtYtE1O_lepMT52Ua1jOdFvypXVU";
+        const MODEL = "gemini-2.5-flash";
 
-        let resetCounter = 0;
-        document.body.addEventListener('click', (e) => {
-            if (e.target.id === 'connectBtn') return;
-            resetCounter++;
-            if (resetCounter === 10) {
-                localStorage.removeItem("argus_api_key");
-                alert("已清除記憶，請刷新網頁。");
-                location.reload();
-            }
-            setTimeout(() => { resetCounter = 0; }, 3000); 
-        });
-
-        const MODEL = "gemini-1.5-flash"; 
         const video = document.getElementById("webcam");
         const canvas = document.getElementById("canvas");
         const log = document.getElementById("log");
         const statusTxt = document.getElementById("statusTxt");
-        const connectBtn = document.getElementById("connectBtn");
 
         let currentFacingMode = "environment";
         let currentStream = null;
@@ -62,66 +86,86 @@
         let clickTimer = null;
         let speechQueue = [];
         let speaking = false;
+        
+        // 🌟 新增：用來記錄「是否已經播放過教學」的變數
+        let hasPlayedIntro = false; 
 
-        function speak(text, rate = 1.05) {
-            speechQueue.push({text, rate});
+        /* ================= 語音系統 ================= */
+
+        function speak(text) {
+            speechQueue.push(text);
             processSpeech();
         }
+
         function processSpeech() {
             if (speaking || speechQueue.length === 0) return;
             speaking = true;
-            const item = speechQueue.shift();
-            const u = new SpeechSynthesisUtterance(item.text);
+
+            const text = speechQueue.shift();
+            const u = new SpeechSynthesisUtterance(text);
             u.lang = "zh-TW";
-            u.rate = item.rate;
-            u.onend = () => { speaking = false; processSpeech(); };
+            u.rate = 1.05;
+            u.onend = () => {
+                speaking = false;
+                processSpeech();
+            };
             window.speechSynthesis.speak(u);
         }
-        function stopSpeech() { window.speechSynthesis.cancel(); speechQueue = []; speaking = false; }
+
+        function stopSpeech() {
+            window.speechSynthesis.cancel();
+            speechQueue = [];
+            speaking = false;
+        }
+
+        /* ================= 開機播報 ================= */
+
+        function introGuide() {
+            speak("系統已啟動。");
+            speak("單擊畫面辨識前方物體。");
+            speak("雙擊切換鏡頭。");
+            speak("三擊開啟或關閉自動辨識。");
+            speak("長按兩秒掃描附近店家。");
+        }
+
+        /* ================= 相機 ================= */
 
         async function startCamera(mode) {
-            if (currentStream) currentStream.getTracks().forEach(t => t.stop());
+            if (currentStream) {
+                currentStream.getTracks().forEach(t => t.stop());
+            }
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: mode } });
                 video.srcObject = stream;
                 currentStream = stream;
-                statusTxt.innerText = "● 軟體系統就緒";
-            } catch (err) { log.innerHTML = "❌ 相機失敗"; }
+                video.style.transform = mode === "user" ? "scaleX(-1)" : "scaleX(1)";
+                statusTxt.innerText = "● 系統就緒";
+                
+                // 🌟 修正：檢查是否播過教學，沒播過才播，播過就把開關關掉
+                if (!hasPlayedIntro) {
+                    setTimeout(introGuide, 800);
+                    hasPlayedIntro = true; 
+                }
+            } catch {
+                log.innerHTML = "❌ 無法存取相機";
+            }
         }
         startCamera(currentFacingMode);
 
         function switchCamera() {
             currentFacingMode = currentFacingMode === "environment" ? "user" : "environment";
             startCamera(currentFacingMode);
-            stopSpeech(); speak("已切換鏡頭");
+            stopSpeech();
+            speak("已切換鏡頭");
         }
 
-        connectBtn.addEventListener('click', async (e) => {
-            e.stopPropagation(); 
-            try {
-                statusTxt.innerText = "🔍 搜尋中...";
-                const device = await navigator.bluetooth.requestDevice({
-                    filters: [{ name: 'ARGUS_Device' }],
-                    optionalServices: ['12345678-1234-5678-1234-56789abcdef0']
-                });
-                const server = await device.gatt.connect();
-                const service = await server.getPrimaryService('12345678-1234-5678-1234-56789abcdef0');
-                const char = await service.getCharacteristic('abcdef01-1234-5678-1234-56789abcdef0');
-                await char.startNotifications();
-                char.addEventListener('characteristicvaluechanged', (event) => {
-                    const msg = new TextDecoder().decode(event.target.value);
-                    if (msg === "WARNING" && !isProcessing) analyze(true); 
-                });
-                statusTxt.innerHTML = "🟢 連線成功";
-                speak("導盲杖已連接");
-            } catch (err) { statusTxt.innerText = "🔴 連線失敗"; }
-        });
+        /* ================= 影像辨識 ================= */
 
-        async function analyze(isEmergency = false) {
-            if (isProcessing || !KEY) return;
+        async function analyze() {
+            if (isProcessing) return;
+            stopSpeech();
             isProcessing = true;
-            log.innerHTML = isEmergency ? "🚨 威脅分析..." : "🧠 辨識中...";
-            speak(isEmergency ? "警告" : "正在辨識");
+            log.innerHTML = "🧠 正在解析影像...";
 
             const ctx = canvas.getContext("2d");
             canvas.width = video.videoWidth;
@@ -129,64 +173,114 @@
             ctx.drawImage(video, 0, 0);
             const base64 = canvas.toDataURL("image/jpeg", 0.8).split(",")[1];
 
-            // 修正處：使用反引號
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${KEY}`;
-
             try {
-                const res = await fetch(apiUrl, {
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${KEY}`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                        contents: [{ parts: [
-                            { text: isEmergency ? "描述前方危險物" : "描述正前方物體" },
-                            { inlineData: { mimeType: "image/jpeg", data: base64 } }
-                        ]}]
+                        contents: [{
+                            parts: [
+                                { text: "請用10字內描述前方最重要物體方位" },
+                                { inline_data: { mime_type: "image/jpeg", data: base64 } }
+                            ]
+                        }]
                     })
                 });
                 const data = await res.json();
-                const text = data.candidates[0].content.parts[0].text;
+                const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "無法辨識";
                 log.innerHTML = `<span class="highlight">${text}</span>`;
                 speak(text);
-            } catch { log.innerHTML = "❌ 辨識失敗"; }
-            setTimeout(() => { isProcessing = false; }, 2000);
+            } catch {
+                log.innerHTML = "❌ 辨識失敗";
+            }
+            isProcessing = false;
         }
+
+        /* ================= 店家掃描 + 念出全部店名 ================= */
 
         async function locate() {
             if (isProcessing) return;
-            stopSpeech(); isProcessing = true;
-            log.innerHTML = "🛰️ 掃描中...";
+            stopSpeech();
+            isProcessing = true;
+            log.innerHTML = "🛰️ 正在掃描周邊...";
+
             navigator.geolocation.getCurrentPosition(async (pos) => {
                 const { latitude: lat, longitude: lon } = pos.coords;
+
                 try {
                     const query = `[out:json];(node(around:200,${lat},${lon})["name"]["shop"];node(around:200,${lat},${lon})["name"]["amenity"];);out;`;
                     const osmRes = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`);
                     const osmJson = await osmRes.json();
+
+                    if (!osmJson.elements.length) {
+                        speak("附近沒有店家");
+                        log.innerHTML = "附近沒有店家";
+                        isProcessing = false;
+                        return;
+                    }
+
                     let names = [];
-                    osmJson.elements.forEach(e => { if (e.tags.name) names.push(e.tags.name); });
-                    log.innerHTML = names.length ? names.slice(0, 5).join("<br>") : "附近無店家";
-                    names.slice(0, 5).forEach(n => speak(n));
-                } catch { speak("掃描失敗"); }
+                    let html = "";
+                    osmJson.elements.forEach(e => {
+                        const name = e.tags.name;
+                        if (name && !names.includes(name)) {
+                            names.push(name);
+                            html += `<div class="shop-item">${name}</div>`;
+                        }
+                    });
+                    log.innerHTML = html;
+
+                    speak(`附近共有${names.length}間店家`);
+                    names.forEach((n, i) => {
+                        speak(`${n}`);
+                    });
+
+                } catch {
+                    log.innerHTML = "❌ 掃描失敗";
+                }
                 isProcessing = false;
-            }, () => { isProcessing = false; });
+            });
         }
 
+        /* ================= 手勢控制邏輯 ================= */
+
         document.body.addEventListener("pointerdown", (e) => {
-            if (e.target.id === 'connectBtn') return;
             isLongPress = false; 
-            pressTimer = setTimeout(() => { isLongPress = true; locate(); }, 1500); 
+            pressTimer = setTimeout(() => {
+                isLongPress = true; 
+                locate();
+            }, 1500); 
         });
+
         document.body.addEventListener("pointerup", (e) => {
-            if (e.target.id === 'connectBtn') return;
             clearTimeout(pressTimer); 
-            if (isLongPress) return; 
+            
+            if (isLongPress) {
+                return; 
+            }
+
             clickCount++;
             clearTimeout(clickTimer); 
+
             clickTimer = setTimeout(() => {
-                if (clickCount === 1) analyze(false);
-                else if (clickCount === 2) switchCamera();
+                if (clickCount === 1) {
+                    analyze(); 
+                } 
+                else if (clickCount === 2) {
+                    switchCamera(); 
+                } 
                 else if (clickCount >= 3) {
-                    if (autoInterval) { clearInterval(autoInterval); autoInterval = null; speak("巡航關閉"); }
-                    else { autoInterval = setInterval(() => analyze(false), 15000); speak("巡航開啟"); analyze(false); }
+                    if (autoInterval) {
+                        clearInterval(autoInterval);
+                        autoInterval = null;
+                        speak("自動辨識已關閉");
+                        log.innerHTML = "自動辨識：<span style='color:red;'>關閉</span>";
+                    } else {
+                        autoInterval = setInterval(analyze, 15000);
+                        speak("自動辨識已開啟");
+                        log.innerHTML = "自動辨識：<span style='color:var(--green);'>開啟</span>";
+                        analyze(); 
+                    }
                 }
                 clickCount = 0; 
             }, 350); 
