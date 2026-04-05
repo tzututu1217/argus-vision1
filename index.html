@@ -201,10 +201,10 @@
             ctx.drawImage(video, 0, 0);
             const base64 = canvas.toDataURL("image/jpeg", 0.8).split(",")[1];
 
-            // 調整提示詞，專注於交通號誌
+            // 核心修改處：要求模型辨識號誌名稱、顏色以及秒數
             const promptText = isEmergency 
                 ? "緊急狀況：請告訴我正前方擋住的物體名稱，並給出避開建議，10字內。"
-                : "辨識圖中的道路號誌或紅綠燈，僅回答號誌名稱與顏色（例如：紅燈、禁止進入、右轉箭頭），若無號誌則回答查無號誌。";
+                : "辨識圖中的道路號誌或紅綠燈。僅回答：1.號誌名稱與顏色（例如：紅燈、綠燈、禁止進入）。2.若旁邊有倒數秒數，請務必唸出數字（例如：綠燈剩餘25秒）。若無號誌則回答查無號誌。回答請保持簡短。";
 
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${KEY}`;
 
@@ -232,7 +232,6 @@
             setTimeout(() => { isProcessing = false; }, 2000);
         }
 
-        // 僅保留單擊偵測，移除雙擊、三擊與長按邏輯
         document.body.addEventListener("pointerup", (e) => {
             if (e.target.id === 'connectBtn') return; 
             
@@ -240,7 +239,7 @@
             clearTimeout(clickTimer); 
 
             clickTimer = setTimeout(() => {
-                if (clickCount === 1) analyze(false); // 單擊：辨識號誌
+                if (clickCount === 1) analyze(false); 
                 clickCount = 0; 
             }, 300); 
         });
