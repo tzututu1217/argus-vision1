@@ -3,19 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ARGUS 3.0 究極完全體</title>
+    <title>ARGUS 智能導盲系統</title>
 
     <style>
         :root { 
-            --bg: #020617; 
-            --card: #0f172a; 
-            --accent: #38bdf8; 
-            --green: #10b981; 
+            --bg: #0a0f1d; 
+            --card: #161e31; 
+            --accent: #00d4ff; 
+            --green: #00ff9d; 
+            --warning: #ff9f00;
+            --danger: #ff4757;
+            --text: #ffffff;
         }
         body {
-            font-family: system-ui;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
             background: var(--bg);
-            color: #f8fafc;
+            color: var(--text);
             display: flex;
             justify-content: center;
             align-items: center;
@@ -27,82 +30,125 @@
         }
         .card {
             background: var(--card);
-            padding: 25px;
-            border-radius: 30px;
+            padding: 35px;
+            border-radius: 32px;
             max-width: 440px;
             width: 92%;
             text-align: center;
-            border: 1px solid #1e293b;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+            border: 2px solid #2d3748;
+            position: relative;
         }
         
-        /* 藍牙連線按鈕專屬樣式 */
+        h2 {
+            margin: 0 0 25px 0;
+            font-size: 26px;
+            color: var(--accent);
+            font-weight: 800;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
         #connectBtn {
-            background: #2563eb;
+            background: linear-gradient(135deg, var(--accent), #0072ff);
             color: white;
             border: none;
-            padding: 12px 20px;
-            border-radius: 12px;
-            font-size: 16px;
-            font-weight: bold;
+            padding: 16px 20px;
+            border-radius: 16px;
+            font-size: 17px;
+            font-weight: 700;
             width: 100%;
-            margin-bottom: 15px;
+            margin-bottom: 20px;
             cursor: pointer;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-            position: relative;
-            z-index: 10;
+            box-shadow: 0 4px 15px rgba(0, 212, 255, 0.3);
+            transition: transform 0.2s, filter 0.2s;
         }
-        #connectBtn:active { background: #1d4ed8; }
+        #connectBtn:active { transform: scale(0.98); filter: brightness(1.1); }
+
+        #statusTxt {
+            font-size: 15px;
+            color: #a0aec0;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-weight: 500;
+        }
+
+        .video-container {
+            height: 300px; 
+            background: #000; 
+            border-radius: 20px; 
+            margin: 10px 0; 
+            overflow: hidden;
+            border: 2px solid var(--accent);
+            position: relative;
+        }
+
+        /* 裝飾用的角落標誌 */
+        .video-container::before {
+            content: "";
+            position: absolute;
+            top: 10px; left: 10px; width: 20px; height: 20px;
+            border-top: 2px solid var(--accent); border-left: 2px solid var(--accent);
+            z-index: 2;
+        }
 
         #log {
-            background: #0005;
-            padding: 15px;
-            border-radius: 15px;
-            max-height: 200px;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 20px;
+            border-radius: 16px;
+            height: 120px;
             overflow-y: auto;
-            margin-top: 15px;
+            margin-top: 20px;
+            text-align: left;
+            font-size: 15px;
+            line-height: 1.6;
+            color: #e2e8f0;
+            border-left: 4px solid var(--accent);
         }
-        .highlight { color: #fff; font-weight: bold; }
-        .shop-item { padding: 6px 0; border-bottom: 1px solid #1e293b; }
+        .highlight { color: var(--accent); font-weight: bold; }
+        .danger-text { color: var(--danger); font-weight: bold; }
+        .warning-text { color: var(--warning); font-weight: bold; }
     </style>
 </head>
 
 <body>
     <div class="card" id="touchArea">
-        <h2>👁 ARGUS 3.0 完全體</h2>
+        <h2>ARGUS 智能導盲系統</h2>
         
-        <button id="connectBtn">🔗 點此連接超音波導盲杖</button>
-        <div id="statusTxt">系統啟動中...</div>
+        <button id="connectBtn">🔗 連接導盲硬體設備</button>
+        <div id="statusTxt">系統待命中</div>
 
-        <div style="height: 260px; background: #000; border-radius: 20px; margin: 15px 0; overflow: hidden;">
+        <div class="video-container">
             <video id="webcam" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
         </div>
 
-        <div id="log">等待指令...<br><small>(支援手勢盲操作)</small></div>
+        <div id="log">> 系統已就緒<br><span style="font-size: 12px; color: #718096;">等待觸發指令...</span></div>
         <canvas id="canvas" style="display: none;"></canvas>
     </div>
 
     <script>
-        /* === 核心修正：API KEY 隱私輸入機制 === */
         let KEY = localStorage.getItem("argus_api_key");
         if (!KEY) {
-            KEY = prompt("為了防止 GitHub 警報，請輸入您的 Gemini API Key：");
+            KEY = prompt("請輸入您的 Gemini API Key：");
             if (KEY) localStorage.setItem("argus_api_key", KEY);
         }
 
-        // 隱藏重設功能：快速連點畫面 10 下可清除金鑰
         let resetCounter = 0;
         document.body.addEventListener('click', (e) => {
             if (e.target.id === 'connectBtn') return; 
             resetCounter++;
-            if (resetCounter === 10) {
+            if (resetCounter === 15) {
                 localStorage.removeItem("argus_api_key");
-                alert("金鑰已清除，請重新整理網頁後輸入新金鑰。");
+                alert("金鑰重置成功。");
                 location.reload();
             }
             setTimeout(() => { resetCounter = 0; }, 3000);
         });
 
-        const MODEL = "gemini-2.5-flash";
+        const MODEL = "gemini-2.5-flash-preview-09-2025";
 
         const video = document.getElementById("webcam");
         const canvas = document.getElementById("canvas");
@@ -112,7 +158,6 @@
 
         let currentFacingMode = "environment";
         let currentStream = null;
-        let autoInterval = null;
         let pressTimer;
         let isLongPress = false;
         let isProcessing = false;
@@ -122,8 +167,7 @@
         let speaking = false;
         let hasPlayedIntro = false; 
 
-        /* ================= 語音系統 ================= */
-        function speak(text, rate = 1.05) {
+        function speak(text, rate = 1.1) {
             speechQueue.push({text, rate});
             processSpeech();
         }
@@ -131,7 +175,6 @@
         function processSpeech() {
             if (speaking || speechQueue.length === 0) return;
             speaking = true;
-            
             const item = speechQueue.shift();
             const u = new SpeechSynthesisUtterance(item.text);
             u.lang = "zh-TW";
@@ -148,11 +191,9 @@
 
         function introGuide() {
             speak("系統已啟動。");
-            speak("請點擊最上方按鈕連接導盲杖。");
-            speak("或單擊畫面辨識號誌與秒數。");
+            speak("點擊連接設備，或按一下畫面辨識前方。");
         }
 
-        /* ================= 相機 (自動降落傘) ================= */
         async function startCamera(mode) {
             if (currentStream) currentStream.getTracks().forEach(t => t.stop());
             try {
@@ -160,48 +201,35 @@
                 video.srcObject = stream;
                 currentStream = stream;
                 video.style.transform = mode === "user" ? "scaleX(-1)" : "scaleX(1)";
-                statusTxt.innerText = "● 軟體系統就緒";
-                
+                statusTxt.innerHTML = "<span style='color:var(--accent)'>●</span> 相機已啟動";
                 if (!hasPlayedIntro) {
-                    setTimeout(introGuide, 800);
+                    setTimeout(introGuide, 1000);
                     hasPlayedIntro = true; 
                 }
             } catch (err) {
                 if (mode === "environment") {
-                    console.log("切換為前鏡頭");
                     currentFacingMode = "user";
                     startCamera("user"); 
                 } else {
-                    log.innerHTML = "❌ 無法存取相機";
+                    log.innerHTML = "<span class='danger-text'>錯誤：無法取得相機權限</span>";
                 }
             }
         }
         startCamera(currentFacingMode);
 
-        function switchCamera() {
-            currentFacingMode = currentFacingMode === "environment" ? "user" : "environment";
-            startCamera(currentFacingMode);
-            stopSpeech();
-            speak("已切換鏡頭");
-        }
-        /* ================= 藍牙連線：ESP32 硬體防護 ================= */
         connectBtn.addEventListener('click', async (e) => {
             e.stopPropagation(); 
-            
             try {
-                statusTxt.innerText = "🔍 正在搜尋導盲杖...";
-                
+                statusTxt.innerText = "🔍 搜尋信號中...";
                 const device = await navigator.bluetooth.requestDevice({
                     filters: [{ name: 'ARGUS_Device' }],
                     optionalServices: ['12345678-1234-5678-1234-56789abcdef0']
                 });
-
                 const server = await device.gatt.connect();
                 const service = await server.getPrimaryService('12345678-1234-5678-1234-56789abcdef0');
                 const char = await service.getCharacteristic('abcdef01-1234-5678-1234-56789abcdef0');
 
                 await char.startNotifications();
-                
                 char.addEventListener('characteristicvaluechanged', (event) => {
                     const msg = new TextDecoder().decode(event.target.value);
                     if (msg === "WARNING" && !isProcessing) {
@@ -209,41 +237,39 @@
                     }
                 });
 
-                statusTxt.innerHTML = "🟢 <span style='color:var(--green);'>硬體防護已連線</span>";
-                connectBtn.innerText = "✅ 導盲杖已連接";
-                connectBtn.style.background = "#10b981";
-                speak("導盲杖連接成功，全面防護啟動");
+                statusTxt.innerHTML = "<span style='color:var(--green);'>● 硬體防護已建立</span>";
+                connectBtn.innerText = "已連線至 ARGUS 設備";
+                connectBtn.style.background = "linear-gradient(135deg, #059669, #10b981)";
+                speak("硬體連線成功，系統防護啟動");
             } catch (err) { 
-                statusTxt.innerText = "🔴 連線失敗，請重試"; 
+                statusTxt.innerText = "連線已取消或超時"; 
             }
         });
 
-        /* ================= 影像辨識 (修正必要語法) ================= */
         async function analyze(isEmergency = false) {
             if (isProcessing || !KEY) return;
-            if (video.videoWidth === 0) { speak("相機準備中"); return; }
+            if (video.videoWidth === 0) return;
 
             stopSpeech();
             isProcessing = true;
             
             if (isEmergency) {
-                log.innerHTML = "🚨 <span style='color:red;'>硬體警告！</span> 正在分析威脅...";
+                log.innerHTML = "> <span class='danger-text'>警告：偵測到障礙物</span><br><span class='warning-text'>正在評估安全路徑...</span>";
                 speak("警告，偵測到障礙物", 1.2); 
             } else {
-                log.innerHTML = "🧠 正在解析號誌...";
-                speak("正在辨識號誌");
+                log.innerHTML = "> <span class='highlight'>啟動環境分析...</span>";
+                speak("辨識中");
             }
 
             const ctx = canvas.getContext("2d");
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             ctx.drawImage(video, 0, 0);
-            const base64 = canvas.toDataURL("image/jpeg", 0.8).split(",")[1];
+            const base64 = canvas.toDataURL("image/jpeg", 0.7).split(",")[1];
 
-            // 修正 Prompt：區分緊急模式與精簡號誌/秒數模式
             const promptText = isEmergency 
-                ? "緊急狀況：請用10個字以內，告訴我正前方擋住的物體名稱，並給出具體避開建議。"
-                : "辨識圖中交通資訊，限20字內。1.紅綠燈：必報顏色與剩餘秒數（如：紅燈剩16秒）。2.平交道：只報有無火車及是否可通行。3.其他號誌：報名稱。若無則報查無號誌。";
+                ? "緊急狀況：請用10個字以內，告訴我正前方擋住的物體名稱，並給出避開建議。"
+                : "辨識圖中交通資訊，限20字內。1.紅綠燈：報顏色與秒數。2.平交道：報有無火車。3.其他：報名稱。";
 
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${KEY}`;
 
@@ -260,44 +286,43 @@
                         }]
                     })
                 });
-                
-                if (!res.ok) throw new Error("API 錯誤");
-
                 const data = await res.json();
-                const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "無法辨識";
-                log.innerHTML = `<span class="highlight">${text}</span>`;
-                
+                const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "無法辨識內容";
+                log.innerHTML += `<br>> <span style="color:#ffffff">${text}</span>`;
                 speak(text, isEmergency ? 1.2 : 1.05); 
             } catch {
-                log.innerHTML = "❌ 辨識失敗";
-                speak(isEmergency ? "前方危險，請立即停下" : "辨識失敗");
+                log.innerHTML += "<br><span class='danger-text'>錯誤：API 回應失敗</span>";
             }
-            
-            setTimeout(() => { isProcessing = false; }, isEmergency ? 4000 : 2000);
-}
-        /* ================= 店家掃描 (移除原長按觸發，但保留函式以防程式報錯) ================= */
-        async function locate() { return; }
+            setTimeout(() => { isProcessing = false; }, isEmergency ? 4000 : 2500);
+        }
 
-        /* ================= 全螢幕盲操作手勢 (移除雙擊、三擊、長按) ================= */
         document.body.addEventListener("pointerdown", (e) => {
             if (e.target.id === 'connectBtn') return; 
             isLongPress = false; 
-            // 這裡原本有長按計時器，已移除
+            pressTimer = setTimeout(() => {
+                isLongPress = true;
+                stopSpeech();
+                log.innerHTML = "> <span class='danger-text'>警告：偵測到障礙物</span>";
+                speak("警告，偵測到障礙物", 1.2);
+            }, 750);
         });
 
         document.body.addEventListener("pointerup", (e) => {
             if (e.target.id === 'connectBtn') return; 
-            
-            clickCount++;
-            clearTimeout(clickTimer); 
-
-            clickTimer = setTimeout(() => {
-                if (clickCount === 1) {
-                    analyze(false); // 僅保留單擊觸發號誌辨識
-                }
-                clickCount = 0; 
-            }, 300); 
+            clearTimeout(pressTimer);
+            if (!isLongPress) {
+                clickCount++;
+                clearTimeout(clickTimer); 
+                clickTimer = setTimeout(() => {
+                    if (clickCount === 1) {
+                        analyze(false); 
+                    }
+                    clickCount = 0; 
+                }, 300); 
+            }
         });
+
+        document.body.addEventListener("pointercancel", () => clearTimeout(pressTimer));
     </script>
 </body>
 </html>
