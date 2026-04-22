@@ -227,7 +227,7 @@
             isProcessing = true;
             
             if (isEmergency) {
-                log.innerHTML = "🚨 <span style='color:red;'>警告！</span> 正在分析威脅...";
+                log.innerHTML = "🚨 <span style='color:red;'>警告：偵測到障礙物</span>";
                 speak("警告，偵測到障礙物", 1.2); 
             } else {
                 log.innerHTML = "🧠 正在解析號誌...";
@@ -283,11 +283,11 @@
             if (e.target.id === 'connectBtn') return; 
             isLongPress = false; 
             
-            // 補回長按功能：持續按住 750ms 觸發
+            // 手勢長按功能：持續按住 750ms 觸發警告（文字改為與自動偵測一致，移除「手動」）
             pressTimer = setTimeout(() => {
                 isLongPress = true;
                 stopSpeech();
-                log.innerHTML = "🚨 <span style='color:red;'>手動警告觸發</span>";
+                log.innerHTML = "🚨 <span style='color:red;'>警告：偵測到障礙物</span>";
                 speak("警告，偵測到障礙物", 1.2);
             }, 750);
         });
