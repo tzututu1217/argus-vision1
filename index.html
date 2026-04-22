@@ -80,7 +80,7 @@
             <video id="webcam" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
         </div>
 
-        <div id="log">等待指令...<br><small>(單擊此框辨識 / 全畫面長按警告)</small></div>
+        <div id="log">等待指令...<br><small>(單擊此框辨識號誌)</small></div>
         <canvas id="canvas" style="display: none;"></canvas>
     </div>
 
@@ -219,7 +219,7 @@
             isProcessing = true;
             
             if (isEmergency) {
-                log.innerHTML = "🚨 <span style='color:red;'>警告！</span> 正在分析威脅...";
+                log.innerHTML = "🚨 <span style='color:red;'>硬體警告！</span> 正在分析威脅...";
                 speak("警告，偵測到障礙物", 1.2); 
             } else {
                 log.innerHTML = "🧠 正在解析號誌...";
