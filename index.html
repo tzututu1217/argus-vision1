@@ -283,7 +283,7 @@
             if (e.target.id === 'connectBtn') return; 
             isLongPress = false; 
             
-            // 手勢長按功能：持續按住 750ms 觸發警告（文字改為與自動偵測一致，移除「手動」）
+            // 手勢長按功能：持續按住 750ms 觸發警告文字與語音，移除「手動」字樣
             pressTimer = setTimeout(() => {
                 isLongPress = true;
                 stopSpeech();
@@ -294,7 +294,7 @@
 
         document.body.addEventListener("pointerup", (e) => {
             if (e.target.id === 'connectBtn') return; 
-            clearTimeout(pressTimer); // 放開即清除計時器
+            clearTimeout(pressTimer); 
             
             if (!isLongPress) {
                 clickCount++;
