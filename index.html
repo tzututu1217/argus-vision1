@@ -153,7 +153,7 @@
         }
 
         /* ================= 相機 (自動降落傘) ================= */
-                async function startCamera(mode) {
+        async function startCamera(mode) {
             if (currentStream) currentStream.getTracks().forEach(t => t.stop());
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: mode } });
@@ -227,7 +227,7 @@
             isProcessing = true;
             
             if (isEmergency) {
-                log.innerHTML = "🚨 <span style='color:red;'>硬體警告！</span> 正在分析威脅...";
+                log.innerHTML = "🚨 <span style='color:red;'>警告！</span> 正在分析威脅...";
                 speak("警告，偵測到障礙物", 1.2); 
             } else {
                 log.innerHTML = "🧠 正在解析號誌...";
@@ -278,25 +278,39 @@
         /* ================= 店家掃描 (移除原長按觸發，但保留函式以防程式報錯) ================= */
         async function locate() { return; }
 
-        /* ================= 全螢幕盲操作手勢 (移除雙擊、三擊、長按) ================= */
+        /* ================= 全螢幕盲操作手勢 ================= */
         document.body.addEventListener("pointerdown", (e) => {
             if (e.target.id === 'connectBtn') return; 
             isLongPress = false; 
-            // 這裡原本有長按計時器，已移除
+            
+            // 補回長按功能：持續按住 750ms 觸發
+            pressTimer = setTimeout(() => {
+                isLongPress = true;
+                stopSpeech();
+                log.innerHTML = "🚨 <span style='color:red;'>手動警告觸發</span>";
+                speak("警告，偵測到障礙物", 1.2);
+            }, 750);
         });
 
         document.body.addEventListener("pointerup", (e) => {
             if (e.target.id === 'connectBtn') return; 
+            clearTimeout(pressTimer); // 放開即清除計時器
             
-            clickCount++;
-            clearTimeout(clickTimer); 
+            if (!isLongPress) {
+                clickCount++;
+                clearTimeout(clickTimer); 
 
-            clickTimer = setTimeout(() => {
-                if (clickCount === 1) {
-                    analyze(false); // 僅保留單擊觸發號誌辨識
-                }
-                clickCount = 0; 
-            }, 300); 
+                clickTimer = setTimeout(() => {
+                    if (clickCount === 1) {
+                        analyze(false); // 單擊觸發號誌辨識
+                    }
+                    clickCount = 0; 
+                }, 300); 
+            }
+        });
+
+        document.body.addEventListener("pointercancel", () => {
+            clearTimeout(pressTimer);
         });
     </script>
 </body>
