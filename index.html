@@ -280,16 +280,23 @@
 
         /* ================= 全螢幕盲操作手勢 ================= */
         document.body.addEventListener("pointerdown", (e) => {
+            // 排除按鈕觸發
             if (e.target.id === 'connectBtn') return; 
+            
             isLongPress = false; 
             
-            // 手勢長按功能：持續按住 750ms 觸發警告文字與語音，移除「手動」字樣
-            pressTimer = setTimeout(() => {
-                isLongPress = true;
-                stopSpeech();
-                log.innerHTML = "🚨 <span style='color:red;'>警告：偵測到障礙物</span>";
-                speak("警告，偵測到障礙物", 1.2);
-            }, 750);
+            // 判斷是否點擊在深色 Log 區域
+            const isClickingLog = log.contains(e.target);
+
+            // 長按功能：除了框框(Log)以外的地方都可以觸發
+            if (!isClickingLog) {
+                pressTimer = setTimeout(() => {
+                    isLongPress = true;
+                    stopSpeech();
+                    log.innerHTML = "🚨 <span style='color:red;'>警告：偵測到障礙物</span>";
+                    speak("警告，偵測到障礙物", 1.2);
+                }, 750);
+            }
         });
 
         document.body.addEventListener("pointerup", (e) => {
@@ -297,15 +304,19 @@
             clearTimeout(pressTimer); 
             
             if (!isLongPress) {
-                clickCount++;
-                clearTimeout(clickTimer); 
+                // 單擊功能：規定只能在 Log 框框裡觸發
+                const isClickingLog = log.contains(e.target);
+                if (isClickingLog) {
+                    clickCount++;
+                    clearTimeout(clickTimer); 
 
-                clickTimer = setTimeout(() => {
-                    if (clickCount === 1) {
-                        analyze(false); // 單擊觸發號誌辨識
-                    }
-                    clickCount = 0; 
-                }, 300); 
+                    clickTimer = setTimeout(() => {
+                        if (clickCount === 1) {
+                            analyze(false); // 單擊觸發號誌辨識
+                        }
+                        clickCount = 0; 
+                    }, 300); 
+                }
             }
         });
 
