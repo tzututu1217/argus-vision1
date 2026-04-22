@@ -35,6 +35,7 @@
             border: 1px solid #1e293b;
         }
         
+        /* 藍牙連線按鈕專屬樣式 */
         #connectBtn {
             background: #2563eb;
             color: white;
@@ -59,11 +60,7 @@
             max-height: 200px;
             overflow-y: auto;
             margin-top: 15px;
-            /* 提示使用者此處可點擊 */
-            cursor: pointer;
-            border: 1px solid transparent;
         }
-        #log:active { border-color: var(--accent); }
         .highlight { color: #fff; font-weight: bold; }
         .shop-item { padding: 6px 0; border-bottom: 1px solid #1e293b; }
     </style>
@@ -80,7 +77,7 @@
             <video id="webcam" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
         </div>
 
-        <div id="log">等待指令...<br><small>(單擊此框辨識號誌)</small></div>
+        <div id="log">等待指令...<br><small>(支援手勢盲操作)</small></div>
         <canvas id="canvas" style="display: none;"></canvas>
     </div>
 
@@ -105,7 +102,6 @@
             setTimeout(() => { resetCounter = 0; }, 3000);
         });
 
-        // 維持您要求的版本號
         const MODEL = "gemini-2.5-flash";
 
         const video = document.getElementById("webcam");
@@ -116,6 +112,7 @@
 
         let currentFacingMode = "environment";
         let currentStream = null;
+        let autoInterval = null;
         let pressTimer;
         let isLongPress = false;
         let isProcessing = false;
@@ -152,11 +149,11 @@
         function introGuide() {
             speak("系統已啟動。");
             speak("請點擊最上方按鈕連接導盲杖。");
-            speak("或點擊下方框框辨識號誌。");
+            speak("或單擊畫面辨識號誌與秒數。");
         }
 
-        /* ================= 相機 ================= */
-        async function startCamera(mode) {
+        /* ================= 相機 (自動降落傘) ================= */
+                async function startCamera(mode) {
             if (currentStream) currentStream.getTracks().forEach(t => t.stop());
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: mode } });
@@ -171,6 +168,7 @@
                 }
             } catch (err) {
                 if (mode === "environment") {
+                    console.log("切換為前鏡頭");
                     currentFacingMode = "user";
                     startCamera("user"); 
                 } else {
@@ -180,20 +178,30 @@
         }
         startCamera(currentFacingMode);
 
-        /* ================= 藍牙連線 ================= */
+        function switchCamera() {
+            currentFacingMode = currentFacingMode === "environment" ? "user" : "environment";
+            startCamera(currentFacingMode);
+            stopSpeech();
+            speak("已切換鏡頭");
+        }
+        /* ================= 藍牙連線：ESP32 硬體防護 ================= */
         connectBtn.addEventListener('click', async (e) => {
             e.stopPropagation(); 
+            
             try {
                 statusTxt.innerText = "🔍 正在搜尋導盲杖...";
+                
                 const device = await navigator.bluetooth.requestDevice({
                     filters: [{ name: 'ARGUS_Device' }],
                     optionalServices: ['12345678-1234-5678-1234-56789abcdef0']
                 });
+
                 const server = await device.gatt.connect();
                 const service = await server.getPrimaryService('12345678-1234-5678-1234-56789abcdef0');
                 const char = await service.getCharacteristic('abcdef01-1234-5678-1234-56789abcdef0');
 
                 await char.startNotifications();
+                
                 char.addEventListener('characteristicvaluechanged', (event) => {
                     const msg = new TextDecoder().decode(event.target.value);
                     if (msg === "WARNING" && !isProcessing) {
@@ -204,13 +212,13 @@
                 statusTxt.innerHTML = "🟢 <span style='color:var(--green);'>硬體防護已連線</span>";
                 connectBtn.innerText = "✅ 導盲杖已連接";
                 connectBtn.style.background = "#10b981";
-                speak("導盲杖連接成功");
+                speak("導盲杖連接成功，全面防護啟動");
             } catch (err) { 
-                statusTxt.innerText = "🔴 連線失敗"; 
+                statusTxt.innerText = "🔴 連線失敗，請重試"; 
             }
         });
 
-        /* ================= 影像辨識 ================= */
+        /* ================= 影像辨識 (修正必要語法) ================= */
         async function analyze(isEmergency = false) {
             if (isProcessing || !KEY) return;
             if (video.videoWidth === 0) { speak("相機準備中"); return; }
@@ -232,6 +240,7 @@
             ctx.drawImage(video, 0, 0);
             const base64 = canvas.toDataURL("image/jpeg", 0.8).split(",")[1];
 
+            // 修正 Prompt：區分緊急模式與精簡號誌/秒數模式
             const promptText = isEmergency 
                 ? "緊急狀況：請用10個字以內，告訴我正前方擋住的物體名稱，並給出具體避開建議。"
                 : "辨識圖中交通資訊，限20字內。1.紅綠燈：必報顏色與剩餘秒數（如：紅燈剩16秒）。2.平交道：只報有無火車及是否可通行。3.其他號誌：報名稱。若無則報查無號誌。";
@@ -253,52 +262,42 @@
                 });
                 
                 if (!res.ok) throw new Error("API 錯誤");
+
                 const data = await res.json();
                 const text = data.candidates?.[0]?.content?.parts?.[0]?.text || "無法辨識";
                 log.innerHTML = `<span class="highlight">${text}</span>`;
+                
                 speak(text, isEmergency ? 1.2 : 1.05); 
             } catch {
                 log.innerHTML = "❌ 辨識失敗";
                 speak(isEmergency ? "前方危險，請立即停下" : "辨識失敗");
             }
+            
             setTimeout(() => { isProcessing = false; }, isEmergency ? 4000 : 2000);
-        }
+}
+        /* ================= 店家掃描 (移除原長按觸發，但保留函式以防程式報錯) ================= */
+        async function locate() { return; }
 
-        /* ================= 手勢邏輯 ================= */
-
-        // 全畫面長按警告 (pointerdown)
+        /* ================= 全螢幕盲操作手勢 (移除雙擊、三擊、長按) ================= */
         document.body.addEventListener("pointerdown", (e) => {
             if (e.target.id === 'connectBtn') return; 
             isLongPress = false; 
-            pressTimer = setTimeout(() => {
-                isLongPress = true;
-                stopSpeech();
-                log.innerHTML = "🚨 <span style='color:red;'>警告：偵測到障礙物</span>";
-                speak("警告，偵測到障礙物", 1.2);
-            }, 750);
+            // 這裡原本有長按計時器，已移除
         });
 
-        // 單擊邏輯 (限縮在 log 框)
         document.body.addEventListener("pointerup", (e) => {
             if (e.target.id === 'connectBtn') return; 
-            clearTimeout(pressTimer);
             
-            if (!isLongPress) {
-                // 只有點擊 log 區域才觸發辨識
-                if (e.target.id === 'log' || log.contains(e.target)) {
-                    clickCount++;
-                    clearTimeout(clickTimer); 
-                    clickTimer = setTimeout(() => {
-                        if (clickCount === 1) {
-                            analyze(false); 
-                        }
-                        clickCount = 0; 
-                    }, 300); 
-                }
-            }
-        });
+            clickCount++;
+            clearTimeout(clickTimer); 
 
-        document.body.addEventListener("pointercancel", () => clearTimeout(pressTimer));
+            clickTimer = setTimeout(() => {
+                if (clickCount === 1) {
+                    analyze(false); // 僅保留單擊觸發號誌辨識
+                }
+                clickCount = 0; 
+            }, 300); 
+        });
     </script>
 </body>
 </html>
