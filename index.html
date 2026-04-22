@@ -292,9 +292,8 @@
             if (!isClickingLog) {
                 pressTimer = setTimeout(() => {
                     isLongPress = true;
-                    stopSpeech();
-                    log.innerHTML = "🚨 <span style='color:red;'>警告：偵測到障礙物</span>";
-                    speak("警告，偵測到障礙物", 1.2);
+                    // 執行緊急辨識邏輯：包含警告詞與後續環境分析
+                    analyze(true);
                 }, 750);
             }
         });
