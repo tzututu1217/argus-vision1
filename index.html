@@ -35,7 +35,7 @@
             border: 1px solid #1e293b;
         }
         
-        /* 藍牙連線按鈕樣式 */
+        /* 藍牙連線按鈕專屬樣式 */
         #connectBtn {
             background: #2563eb;
             color: white;
@@ -68,7 +68,7 @@
 
 <body>
     <div class="card" id="touchArea">
-        <h2> ARGUS 3.0 </h2>
+        <h2>👁 ARGUS 3.0 完全體</h2>
         
         <button id="connectBtn">🔗 點此連接超音波導盲杖</button>
         <div id="statusTxt">系統啟動中...</div>
@@ -82,14 +82,14 @@
     </div>
 
     <script>
-        // API KEY 
+        /* === 核心修正：API KEY 隱私輸入機制 === */
         let KEY = localStorage.getItem("argus_api_key");
         if (!KEY) {
-            KEY = prompt("請輸入 Gemini API Key：");
+            KEY = prompt("為了防止 GitHub 警報，請輸入您的 Gemini API Key：");
             if (KEY) localStorage.setItem("argus_api_key", KEY);
         }
 
-        // 點畫面 10 下清除金鑰
+        // 隱藏重設功能：快速連點畫面 10 下可清除金鑰
         let resetCounter = 0;
         document.body.addEventListener('click', (e) => {
             if (e.target.id === 'connectBtn') return; 
@@ -149,10 +149,10 @@
         function introGuide() {
             speak("系統已啟動。");
             speak("請點擊最上方按鈕連接導盲杖。");
-            speak("或單擊畫面辨識號誌。");
+            speak("或單擊畫面辨識號誌與秒數。");
         }
 
-        /* ================= 相機 ================= */
+        /* ================= 相機 (自動降落傘) ================= */
         async function startCamera(mode) {
             if (currentStream) currentStream.getTracks().forEach(t => t.stop());
             try {
@@ -184,12 +184,12 @@
             stopSpeech();
             speak("已切換鏡頭");
         }
-        /* ================= 藍牙連線 ================= */
+        /* ================= 藍牙連線：ESP32 硬體防護 ================= */
         connectBtn.addEventListener('click', async (e) => {
             e.stopPropagation(); 
             
             try {
-                statusTxt.innerText = " 正在搜尋導盲杖...";
+                statusTxt.innerText = "🔍 正在搜尋導盲杖...";
                 
                 const device = await navigator.bluetooth.requestDevice({
                     filters: [{ name: 'ARGUS_Dynamic_V3' }],
@@ -240,10 +240,10 @@
             ctx.drawImage(video, 0, 0);
             const base64 = canvas.toDataURL("image/jpeg", 0.8).split(",")[1];
 
-            // 區分緊急模式與精簡號誌/秒數模式
+            // 修正 Prompt：區分緊急模式與精簡號誌/秒數模式
             const promptText = isEmergency 
-                ? "緊急狀況：請用10個字以內，告訴我正前方擋住的物體名稱，並給出具體避開建議，不需要說出字數及特殊符號。"
-                : "辨識圖中交通資訊，限20字內，不需要說出字數及特殊符號。1.紅綠燈：必報顏色與剩餘秒數（如：紅燈剩16秒）。2.平交道：只報有無火車及是否可通行。3.其他號誌：報名稱。若無則報查無號誌。";
+                ? "緊急狀況：請用10個字以內，告訴我正前方擋住的物體名稱，並給出具體避開建議。"
+                : "辨識圖中交通資訊，限20字內。1.紅綠燈：必報顏色與剩餘秒數（如：紅燈剩16秒）。2.平交道：只報有無火車及是否可通行。3.其他號誌：報名稱。若無則報查無號誌。";
 
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${KEY}`;
 
@@ -275,7 +275,7 @@
             
             setTimeout(() => { isProcessing = false; }, isEmergency ? 4000 : 2000);
 }
-        /* ================= (保留函式以防程式報錯) ================= */
+        /* ================= 店家掃描 (移除原長按觸發，但保留函式以防程式報錯) ================= */
         async function locate() { return; }
 
         /* ================= 全螢幕盲操作手勢 ================= */
@@ -288,7 +288,7 @@
             // 判斷是否點擊在深色 Log 區域
             const isClickingLog = log.contains(e.target);
 
-            // 嘻
+            // 長按功能：除了框框(Log)以外的地方都可以觸發
             if (!isClickingLog) {
                 pressTimer = setTimeout(() => {
                     isLongPress = true;
