@@ -76,7 +76,8 @@
         <div style="height: 260px; background: #000; border-radius: 20px; margin: 15px 0; overflow: hidden;">
             <video id="webcam" autoplay playsinline style="width: 100%; height: 100%; object-fit: cover;"></video>
         </div>
-          <div id="log">等待指令...<br><small>(支援手勢盲操作)</small></div>
+
+        <div id="log">等待指令...<br><small>(支援手勢盲操作)</small></div>
         <canvas id="canvas" style="display: none;"></canvas>
     </div>
 
@@ -148,11 +149,11 @@
         function introGuide() {
             speak("系統已啟動。");
             speak("請點擊最上方按鈕連接導盲杖。");
-            speak("或單擊畫面辨識前方物體，長按兩秒掃描附近店家。");
+            speak("或單擊畫面辨識號誌與秒數。");
         }
 
         /* ================= 相機 (自動降落傘) ================= */
-        async function startCamera(mode) {
+                async function startCamera(mode) {
             if (currentStream) currentStream.getTracks().forEach(t => t.stop());
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: mode } });
@@ -191,7 +192,7 @@
                 statusTxt.innerText = "🔍 正在搜尋導盲杖...";
                 
                 const device = await navigator.bluetooth.requestDevice({
-                    filters: [{ name: 'ARGUS_Dynamic_V3' }],
+                    filters: [{ name: 'ARGUS_Device' }],
                     optionalServices: ['12345678-1234-5678-1234-56789abcdef0']
                 });
 
@@ -216,6 +217,7 @@
                 statusTxt.innerText = "🔴 連線失敗，請重試"; 
             }
         });
+
         /* ================= 影像辨識 (修正必要語法) ================= */
         async function analyze(isEmergency = false) {
             if (isProcessing || !KEY) return;
@@ -228,8 +230,8 @@
                 log.innerHTML = "🚨 <span style='color:red;'>硬體警告！</span> 正在分析威脅...";
                 speak("警告，偵測到障礙物", 1.2); 
             } else {
-                log.innerHTML = "🧠 正在解析影像...";
-                speak("正在分析");
+                log.innerHTML = "🧠 正在解析號誌...";
+                speak("正在辨識號誌");
             }
 
             const ctx = canvas.getContext("2d");
@@ -238,9 +240,10 @@
             ctx.drawImage(video, 0, 0);
             const base64 = canvas.toDataURL("image/jpeg", 0.8).split(",")[1];
 
+            // 修正 Prompt：區分緊急模式與精簡號誌/秒數模式
             const promptText = isEmergency 
-                ? "緊急狀況：請用10個字以內，告訴我正前方逼近的物體是什麼？並給出簡短避開建議。"
-                : "請用10字內描述前方最重要物體方位";
+                ? "緊急狀況：請用10個字以內，告訴我正前方擋住的物體名稱，並給出具體避開建議。"
+                : "辨識圖中交通資訊，限20字內。1.紅綠燈：必報顏色與剩餘秒數（如：紅燈剩16秒）。2.平交道：只報有無火車及是否可通行。3.其他號誌：報名稱。若無則報查無號誌。";
 
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${KEY}`;
 
@@ -272,80 +275,28 @@
             
             setTimeout(() => { isProcessing = false; }, isEmergency ? 4000 : 2000);
 }
-        /* ================= 店家掃描 (長按觸發) ================= */
-        async function locate() {
-            if (isProcessing) return;
-            stopSpeech();
-            isProcessing = true;
-            log.innerHTML = "🛰️ 正在掃描周邊...";
-            speak("正在定位周邊設施");
+        /* ================= 店家掃描 (移除原長按觸發，但保留函式以防程式報錯) ================= */
+        async function locate() { return; }
 
-            navigator.geolocation.getCurrentPosition(async (pos) => {
-                const { latitude: lat, longitude: lon } = pos.coords;
-                try {
-                    const query = `[out:json];(node(around:200,${lat},${lon})["name"]["shop"];node(around:200,${lat},${lon})["name"]["amenity"];);out;`;
-                    const osmRes = await fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`);
-                    const osmJson = await osmRes.json();
-
-                    if (!osmJson.elements.length) {
-                        speak("附近沒有店家"); log.innerHTML = "附近沒有店家";
-                        isProcessing = false; return;
-                    }
-
-                    let names = [];
-                    let html = "";
-                    osmJson.elements.forEach(e => {
-                        const name = e.tags.name;
-                        if (name && !names.includes(name)) {
-                            names.push(name);
-                            html += `<div class="shop-item">${name}</div>`;
-                        }
-                    });
-                    log.innerHTML = html;
-
-                    speak(`附近共有${names.length}間設施`);
-                    names.forEach(n => speak(n));
-
-                } catch { log.innerHTML = "❌ 掃描失敗"; speak("掃描失敗"); }
-                isProcessing = false;
-            });
-        }
-
-        /* ================= 全螢幕盲操作手勢 ================= */
+        /* ================= 全螢幕盲操作手勢 (移除雙擊、三擊、長按) ================= */
         document.body.addEventListener("pointerdown", (e) => {
             if (e.target.id === 'connectBtn') return; 
-            
             isLongPress = false; 
-            pressTimer = setTimeout(() => {
-                isLongPress = true; 
-                locate();
-            }, 1500); 
+            // 這裡原本有長按計時器，已移除
         });
 
         document.body.addEventListener("pointerup", (e) => {
             if (e.target.id === 'connectBtn') return; 
             
-            clearTimeout(pressTimer); 
-            if (isLongPress) return; 
-
             clickCount++;
             clearTimeout(clickTimer); 
 
             clickTimer = setTimeout(() => {
-                if (clickCount === 1) analyze(false);      // 單擊：一般探索
-                else if (clickCount === 2) switchCamera(); // 雙擊：切換鏡頭
-                else if (clickCount >= 3) {                // 三擊：自動巡航
-                    if (autoInterval) {
-                        clearInterval(autoInterval); autoInterval = null;
-                        speak("自動辨識已關閉"); log.innerHTML = "自動辨識：關閉";
-                    } else {
-                        autoInterval = setInterval(() => analyze(false), 15000);
-                        speak("自動辨識已開啟"); log.innerHTML = "自動辨識：開啟";
-                        analyze(false); 
-                    }
+                if (clickCount === 1) {
+                    analyze(false); // 僅保留單擊觸發號誌辨識
                 }
                 clickCount = 0; 
-            }, 350); 
+            }, 300); 
         });
     </script>
 </body>
