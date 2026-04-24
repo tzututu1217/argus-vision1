@@ -191,7 +191,7 @@
                 statusTxt.innerText = "🔍 正在搜尋導盲杖...";
                 
                 const device = await navigator.bluetooth.requestDevice({
-                    filters: [{ name: 'ARGUS_Device' }],
+                    filters: [{ name: 'ARGUS_Dynamic_V3' }],
                     optionalServices: ['12345678-1234-5678-1234-56789abcdef0']
                 });
 
