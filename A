@@ -1,0 +1,1930 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>K-Spot Radar | 追星巡禮與應援活動地圖</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Leaflet CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', '"Noto Sans TC"', 'sans-serif'],
+                    },
+                    colors: {
+                        lavender: {
+                            50: '#faf5ff',
+                            100: '#f3e8ff',
+                            200: '#e9d5ff',
+                            300: '#d8b4fe',
+                            400: '#c084fc',
+                            500: '#a855f7',
+                            600: '#9333ea',
+                            700: '#7e22ce',
+                            800: '#6b21a8',
+                            900: '#581c87',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom Leaflet Map Styling for White & Light Purple Theme */
+        .leaflet-popup-content-wrapper {
+            padding: 0;
+            overflow: hidden;
+            border-radius: 1.25rem;
+            box-shadow: 0 15px 30px -5px rgba(147, 51, 234, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+            background: #ffffff;
+            border: 1px solid #f3e8ff;
+        }
+        .leaflet-popup-content {
+            margin: 0 !important;
+            width: 280px !important;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #faf5ff;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #e9d5ff;
+            border-radius: 99px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #c084fc;
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); opacity: 0.9; }
+            50% { transform: scale(1.25); opacity: 0.3; }
+            100% { transform: scale(0.95); opacity: 0.9; }
+        }
+        .gps-pulse {
+            animation: pulse-ring 2s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 h-full font-sans flex flex-col overflow-hidden">
+
+    <!-- Top Navigation Header -->
+    <header class="bg-white/90 backdrop-blur-md border-b border-purple-100 z-30 shrink-0 shadow-sm">
+        <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16 gap-2 sm:gap-4">
+                
+                <!-- Logo & Brand -->
+                <div class="flex items-center gap-2.5 cursor-pointer" onclick="centerOnKorea()">
+                    <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-500 flex items-center justify-center text-white shadow-md shadow-purple-500/20 shrink-0">
+                        <i class="fa-solid fa-location-dot text-xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="font-black text-base sm:text-lg tracking-tight text-slate-900 flex items-center gap-2">
+                            K-SPOT RADAR <span class="text-[10px] sm:text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-bold border border-purple-200">追星與應援</span>
+                        </h1>
+                        <p class="text-[11px] text-slate-500 hidden sm:block">愛豆聖地打卡・生日咖啡廳・個人巡禮主頁</p>
+                    </div>
+                </div>
+
+                <!-- Action Controls & User Account Profile Badge -->
+                <div class="flex items-center gap-2">
+                    
+                    <!-- Real GPS Geolocation Button -->
+                    <button id="btn-locate" onclick="requestRealGPS()" class="flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-purple-50 hover:bg-purple-100 border border-purple-200 text-xs font-semibold text-purple-700 transition">
+                        <i id="gps-icon" class="fa-solid fa-location-crosshairs text-purple-600"></i>
+                        <span id="gps-text" class="hidden md:inline">我的真實定位</span>
+                    </button>
+
+                    <!-- Add Fan Event / Birthday Cafe Button -->
+                    <button onclick="openAddEventModal()" class="flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-gradient-to-r from-amber-500 to-pink-500 hover:from-amber-600 hover:to-pink-600 text-white text-xs font-bold shadow-md shadow-amber-500/15 transition transform active:scale-95">
+                        <i class="fa-solid fa-cake-candles text-sm"></i>
+                        <span class="hidden sm:inline">宣傳應援活動</span>
+                        <span class="sm:hidden">應援</span>
+                    </button>
+
+                    <!-- Add Spot Button -->
+                    <button onclick="openAddSpotModal()" class="flex items-center gap-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white text-xs font-bold shadow-md shadow-purple-600/15 transition transform active:scale-95">
+                        <i class="fa-solid fa-plus"></i>
+                        <span class="hidden sm:inline">新增景點</span>
+                        <span class="sm:hidden">景點</span>
+                    </button>
+
+                    <!-- User Personal Profile Homepage Button -->
+                    <button onclick="openProfileModal()" class="flex items-center gap-2 pl-2 pr-2.5 py-1 rounded-xl bg-purple-50 hover:bg-purple-100 border border-purple-200 text-xs font-medium transition shadow-sm">
+                        <img id="header-user-avatar" class="w-6 h-6 rounded-full object-cover border border-purple-400">
+                        <span id="header-user-name" class="font-bold text-slate-800 max-w-[80px] sm:max-w-[100px] truncate">我的主頁</span>
+                        <span id="friends-badge-count" class="bg-pink-500 text-white text-[10px] font-black px-1.5 py-0.2 rounded-full">0</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Group Selector & Filters Row -->
+        <div class="bg-purple-50/50 border-t border-purple-100 px-4 py-2 overflow-x-auto custom-scrollbar">
+            <div class="max-w-7xl mx-auto flex items-center gap-2 min-w-max">
+                <span class="text-xs font-bold text-purple-800 uppercase tracking-wider mr-1 flex items-center gap-1">
+                    <i class="fa-solid fa-heart text-pink-500 text-[10px]"></i> 偶像:
+                </span>
+                
+                <!-- Group Filter Pills -->
+                <div id="group-pills" class="flex items-center gap-2"></div>
+
+                <div class="h-4 w-[1px] bg-purple-200 mx-1"></div>
+
+                <!-- Category Filter -->
+                <select id="category-filter" onchange="filterSpots()" class="bg-white border border-purple-200 text-xs rounded-xl px-3 py-1.5 text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-400">
+                    <option value="ALL">全部分類 (景點/應援/美食)</option>
+                    <option value="應援活動">🎂 應援咖啡廳/粉絲活動</option>
+                    <option value="MV拍攝">🎬 MV 拍攝地</option>
+                    <option value="美食餐廳">🍜 同款美食/餐廳</option>
+                    <option value="節目/旅遊">✈️ 綜藝/旅遊景點</option>
+                    <option value="粉絲私房">⭐ 粉絲推薦/私房打卡</option>
+                </select>
+
+                <!-- Search Input -->
+                <div class="relative ml-auto">
+                    <input type="text" id="search-input" onkeyup="filterSpots()" placeholder="搜尋景點/偶像/應援..." class="w-36 sm:w-56 bg-white border border-purple-200 text-xs rounded-xl pl-8 pr-3 py-1.5 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-400 shadow-sm">
+                    <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2 text-purple-400 text-xs"></i>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <div class="flex-1 flex flex-col md:flex-row relative overflow-hidden">
+        
+        <!-- Interactive Map Container -->
+        <div class="flex-1 relative h-[50vh] md:h-full w-full">
+            <div id="map" class="w-full h-full bg-slate-100 z-10"></div>
+
+            <!-- Floating Map Selection Mode Banner -->
+            <div id="picking-location-banner" class="hidden absolute top-4 left-1/2 -translate-x-1/2 z-30 bg-purple-900 text-white border border-purple-400 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-xl flex items-center gap-3 animate-bounce">
+                <i class="fa-solid fa-hand-pointer text-amber-300 text-lg"></i>
+                <div class="text-xs">
+                    <span class="font-bold block text-white">請點擊地圖上的任意位置</span>
+                    <span class="text-purple-200 text-[11px]">確定地點座標（景點或應援活動）</span>
+                </div>
+                <button onclick="cancelLocationPicker()" class="ml-2 px-2.5 py-1 bg-purple-950 hover:bg-slate-800 rounded-lg text-xs text-purple-200 border border-purple-700">取消</button>
+            </div>
+
+            <!-- GPS Status Banner -->
+            <div id="location-banner" class="hidden absolute top-4 left-4 z-20 bg-white/95 backdrop-blur-md border border-purple-200 rounded-2xl p-3 shadow-lg max-w-xs">
+                <div class="flex items-start gap-2.5">
+                    <div class="w-8 h-8 rounded-xl bg-purple-100 flex items-center justify-center text-purple-600 shrink-0 mt-0.5">
+                        <i class="fa-solid fa-location-arrow"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-slate-800">真實 GPS 已定位</span>
+                            <button onclick="clearGPS()" class="text-slate-400 hover:text-slate-600 text-xs"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                        <p id="location-status-text" class="text-[11px] text-slate-500 truncate mt-0.5">已計算景點距離目前位置</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Map View Quick Switch Controls -->
+            <div class="absolute bottom-4 left-4 z-20 flex flex-wrap gap-2">
+                <button onclick="centerOnKorea()" class="px-3 py-1.5 bg-white/90 border border-purple-200 hover:bg-purple-50 text-slate-700 rounded-xl text-xs backdrop-blur-md shadow-sm transition flex items-center gap-1.5 font-medium">
+                    <i class="fa-solid fa-earth-asia text-xs text-purple-600"></i> 回韓國首爾全區
+                </button>
+            </div>
+        </div>
+
+        <!-- Sidebar Column -->
+        <div class="w-full md:w-96 lg:w-[420px] bg-white border-t md:border-t-0 md:border-l border-purple-100 flex flex-col h-[50vh] md:h-full z-20 shadow-lg">
+            
+            <!-- Sidebar Header Tabs -->
+            <div class="border-b border-purple-100 px-3 py-2.5 shrink-0 bg-purple-50/30">
+                <div class="flex items-center justify-between mb-2">
+                    <span id="sidebar-count-badge" class="px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs font-bold border border-purple-200">
+                        0 個巡禮打卡點
+                    </span>
+                    <div class="flex items-center gap-2">
+                        <button id="saved-spots-toggle" onclick="toggleSavedOnly()" class="px-2.5 py-1 rounded-xl bg-white text-purple-700 text-[11px] font-bold border border-purple-200 transition shadow-sm">
+                            <i class="fa-regular fa-bookmark mr-1"></i>我的收藏 <span id="saved-spots-count">0</span>
+                        </button>
+                        <span class="text-[11px] text-slate-500">點擊地標查看導航與攻略</span>
+                    </div>
+                </div>
+                
+                <!-- View Mode Segment Control -->
+                <div class="grid grid-cols-3 bg-purple-100/60 p-1 rounded-xl border border-purple-200 text-xs text-center font-semibold">
+                    <button id="tab-btn-spots" onclick="switchSidebarTab('spots')" class="py-1.5 rounded-lg text-white bg-purple-600 font-bold shadow-sm transition">
+                        <i class="fa-solid fa-map-pin mr-1"></i>景點列表
+                    </button>
+                    <button id="tab-btn-events" onclick="switchSidebarTab('events')" class="py-1.5 rounded-lg text-slate-600 hover:text-purple-700 transition">
+                        <i class="fa-solid fa-cake-candles mr-1 text-amber-500"></i>應援活動
+                    </button>
+                    <button id="tab-btn-community" onclick="switchSidebarTab('community')" class="py-1.5 rounded-lg text-slate-600 hover:text-purple-700 transition">
+                        <i class="fa-solid fa-users mr-1 text-pink-500"></i>打卡動態
+                    </button>
+                </div>
+            </div>
+
+            <!-- TAB 1: Spots List View -->
+            <div id="tab-content-spots" class="flex-1 overflow-y-auto p-3.5 space-y-3 custom-scrollbar"></div>
+
+            <!-- TAB 2: Fan Events & Birthday Cafes Directory -->
+            <div id="tab-content-events" class="hidden flex-1 overflow-y-auto p-3.5 space-y-3 custom-scrollbar">
+                <div class="bg-gradient-to-r from-amber-50 via-purple-50 to-pink-50 border border-amber-200/80 rounded-2xl p-3 shadow-sm">
+                    <div class="flex items-center justify-between text-xs font-bold text-amber-800">
+                        <span><i class="fa-solid fa-cake-candles text-amber-500 mr-1"></i> 偶像應援活動宣傳欄</span>
+                        <button onclick="openAddEventModal()" class="text-[11px] underline text-pink-600 hover:text-pink-700">+ 發布我的應援</button>
+                    </div>
+                    <p class="text-[11px] text-slate-600 mt-1 leading-relaxed">
+                        匯集生日咖啡廳、杯套應援、照片展覽與觀影活動！附特典領取資訊。
+                    </p>
+                </div>
+                <div id="events-list-container" class="space-y-3"></div>
+            </div>
+
+            <!-- TAB 3: Community & Friends Check-in Feed -->
+            <div id="tab-content-community" class="hidden flex-1 overflow-y-auto p-3.5 space-y-3.5 custom-scrollbar">
+                
+                <!-- Friends Toggle Switch -->
+                <div class="bg-purple-50/60 border border-purple-100 rounded-2xl p-2.5 flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-user-group text-pink-500 text-sm"></i>
+                        <div>
+                            <span class="text-xs font-bold text-slate-800 block">過濾好友動態</span>
+                            <span class="text-[10px] text-slate-500">只顯示已加入好友的打卡</span>
+                        </div>
+                    </div>
+                    <button id="toggle-friends-feed" onclick="toggleFriendsOnlyFeed()" class="px-3 py-1 rounded-xl bg-white text-purple-700 text-xs font-bold border border-purple-200 transition shadow-sm">
+                        全部粉絲
+                    </button>
+                </div>
+
+                <div id="community-feed-container" class="space-y-3"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+    
+    <!-- MODAL 0: Normal Camera / Photo Picker -->
+    <div id="camera-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4 hidden">
+        <div class="bg-white border border-purple-100 rounded-3xl max-w-md w-full p-5 relative shadow-2xl">
+            <button onclick="closeCameraModal()" class="absolute top-4 right-4 z-10 w-8 h-8 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-full flex items-center justify-center border border-slate-200">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <h3 class="text-base font-bold text-slate-800 mb-2 flex items-center gap-2">
+                <i class="fa-solid fa-camera text-purple-600"></i> 拍攝照片
+            </h3>
+            <p class="text-xs text-slate-500 mb-4">使用裝置的相機拍照，或從相簿選擇照片。</p>
+            <input id="camera-file-input" type="file" accept="image/*" capture="environment" class="hidden" onchange="handleCameraFile(this)">
+            <input id="camera-gallery-input" type="file" accept="image/*" class="hidden" onchange="handleCameraFile(this)">
+            <div class="flex gap-3 w-full">
+                <button onclick="document.getElementById('camera-file-input').click()" class="flex-1 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold shadow-md transition">
+                    <i class="fa-solid fa-camera text-sm mr-1"></i> 拍照
+                </button>
+                <button onclick="document.getElementById('camera-gallery-input').click()" class="flex-1 py-2.5 bg-pink-50 hover:bg-pink-100 text-pink-700 rounded-xl text-xs font-bold border border-pink-200 transition">
+                    <i class="fa-solid fa-images text-sm mr-1"></i> 從相簿選擇
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 1: Personal Profile & Check-in Homepage -->
+    <div id="profile-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white border border-purple-100 rounded-3xl max-w-xl w-full max-h-[90vh] overflow-y-auto custom-scrollbar shadow-2xl p-5 sm:p-6 relative flex flex-col">
+            
+            <button onclick="closeProfileModal()" class="absolute top-4 right-4 z-10 text-slate-400 hover:text-slate-700 w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center border border-slate-200 transition">
+                <i class="fa-solid fa-xmark text-base"></i>
+            </button>
+
+            <!-- Profile Banner & Main Avatar Info Header -->
+            <div class="bg-gradient-to-br from-purple-50 via-white to-pink-50 border border-purple-100 p-4 rounded-2xl mb-5 relative overflow-hidden shadow-sm">
+                <div class="flex flex-col sm:flex-row items-center gap-4 relative z-10">
+                    <div class="relative group">
+                        <img id="profile-avatar-img" class="w-20 h-20 rounded-2xl object-cover border-2 border-purple-300 shadow-md">
+                        
+                        <!-- Avatar Actions Buttons -->
+                        <div class="flex gap-1.5 absolute -bottom-2 -right-1">
+                            <button onclick="triggerCameraCapture('profile-avatar-img', setProfileAvatar)" title="相機拍照" class="w-7 h-7 rounded-xl bg-purple-600 hover:bg-purple-700 text-white flex items-center justify-center text-xs shadow-md border border-white">
+                                <i class="fa-solid fa-camera"></i>
+                            </button>
+                            <label title="從相簿選擇" class="cursor-pointer w-7 h-7 rounded-xl bg-pink-600 hover:bg-pink-700 text-white flex items-center justify-center text-xs shadow-md border border-white">
+                                <i class="fa-solid fa-images"></i>
+                                <input type="file" accept="image/*" onchange="previewImageFile(this, 'profile-avatar-img', setProfileAvatar)" class="hidden">
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="text-center sm:text-left flex-1 min-w-0">
+                        <div class="flex items-center justify-center sm:justify-start gap-2">
+                            <h2 id="profile-display-name" class="text-lg font-black text-slate-800 truncate"></h2>
+                            <span class="px-2 py-0.5 rounded-full bg-pink-100 text-pink-600 border border-pink-200 text-[10px] font-bold">VIP 粉絲</span>
+                        </div>
+                        <p id="profile-handle-id" class="text-xs text-purple-600 font-mono font-semibold mt-0.5"></p>
+                        <p class="text-[11px] text-slate-500 mt-1">✨ 我的專屬打卡站名片・追星紀錄與地圖導航主頁</p>
+                    </div>
+                </div>
+
+                <!-- Stats Dashboard -->
+                <div class="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-purple-100 text-center">
+                    <div class="bg-white/80 p-2 rounded-xl border border-purple-100 shadow-xs">
+                        <span class="block text-[10px] text-slate-400 uppercase font-bold">我的打卡次數</span>
+                        <span id="user-stats-checkins" class="text-base font-black text-pink-600">0</span>
+                    </div>
+                    <div class="bg-white/80 p-2 rounded-xl border border-purple-100 shadow-xs">
+                        <span class="block text-[10px] text-slate-400 uppercase font-bold">造訪景點數</span>
+                        <span id="user-stats-spots" class="text-base font-black text-purple-600">0</span>
+                    </div>
+                    <div class="bg-white/80 p-2 rounded-xl border border-purple-100 shadow-xs">
+                        <span class="block text-[10px] text-slate-400 uppercase font-bold">追星好友</span>
+                        <span id="user-stats-friends" class="text-base font-black text-amber-600">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Profile Navigation Tabs -->
+            <div class="grid grid-cols-3 bg-purple-50 p-1 rounded-xl border border-purple-100 text-xs font-bold text-center mb-4 shrink-0">
+                <button id="prof-tab-checkins" onclick="switchProfileTab('checkins')" class="py-1.5 rounded-lg bg-purple-600 text-white shadow-sm transition">
+                    <i class="fa-solid fa-camera-retro mr-1"></i>我的打卡
+                </button>
+                <button id="prof-tab-friends" onclick="switchProfileTab('friends')" class="py-1.5 rounded-lg text-slate-600 hover:text-purple-700 transition">
+                    <i class="fa-solid fa-user-group mr-1"></i>追星好友
+                </button>
+                <button id="prof-tab-edit" onclick="switchProfileTab('edit')" class="py-1.5 rounded-lg text-slate-600 hover:text-purple-700 transition">
+                    <i class="fa-solid fa-pen-to-square mr-1"></i>帳號設定
+                </button>
+            </div>
+
+            <!-- Profile Tab 1: My Personal Check-ins Timeline -->
+            <div id="prof-sec-checkins" class="space-y-3 max-h-80 overflow-y-auto custom-scrollbar">
+                <div class="flex items-center justify-between text-xs font-bold text-slate-700 mb-1">
+                    <span><i class="fa-solid fa-timeline text-pink-500 mr-1"></i> 個人巡禮認證歷史紀錄</span>
+                    <span class="text-[11px] text-slate-400">點擊可重新跳轉至地點</span>
+                </div>
+                <div id="user-my-checkins-list" class="space-y-2.5"></div>
+            </div>
+
+            <!-- Profile Tab 2: Friends List -->
+            <div id="prof-sec-friends" class="hidden space-y-4">
+                <div class="flex gap-2">
+                    <input type="text" id="add-friend-input" placeholder="輸入好友 ID 或名稱 (例: ARMY_sora)" class="flex-1 bg-slate-50 border border-purple-200 rounded-xl px-3 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-400">
+                    <button onclick="addNewFriend()" class="px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white text-xs font-bold rounded-xl shadow-sm transition">
+                        <i class="fa-solid fa-user-plus mr-1"></i> 加好友
+                    </button>
+                </div>
+                <div id="friends-list-container" class="space-y-2 max-h-60 overflow-y-auto custom-scrollbar"></div>
+            </div>
+
+            <!-- Profile Tab 3: Edit Profile Info Form -->
+            <div id="prof-sec-edit" class="hidden space-y-4 text-xs">
+                <div>
+                    <label class="block text-slate-700 font-semibold mb-1">您的追星暱稱</label>
+                    <input type="text" id="edit-user-name" class="w-full bg-slate-50 border border-purple-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-400">
+                </div>
+                <div>
+                    <label class="block text-slate-700 font-semibold mb-1">專屬 ID (供好友搜尋)</label>
+                    <input type="text" id="edit-user-handle" class="w-full bg-slate-50 border border-purple-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-400">
+                </div>
+                
+                <div class="bg-purple-50/60 p-3 rounded-2xl border border-purple-100">
+                    <span class="block font-bold text-purple-800 mb-1.5">更換頭像選項:</span>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="triggerCameraCapture('profile-avatar-img', setProfileAvatar)" class="py-2 bg-white hover:bg-purple-100 text-purple-700 rounded-xl font-semibold border border-purple-200 flex items-center justify-center gap-1 shadow-xs">
+                            <i class="fa-solid fa-camera text-purple-600"></i> 相機拍攝
+                        </button>
+                        <label class="cursor-pointer py-2 bg-white hover:bg-pink-50 text-pink-600 rounded-xl font-semibold border border-pink-200 flex items-center justify-center gap-1 shadow-xs">
+                            <i class="fa-solid fa-images text-pink-500"></i> 相簿選擇
+                            <input type="file" accept="image/*" onchange="previewImageFile(this, 'profile-avatar-img', setProfileAvatar)" class="hidden">
+                        </label>
+                    </div>
+                </div>
+
+                <button onclick="saveUserProfile()" class="w-full py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition shadow-md">
+                    保存更新個人資料
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- MODAL 2: Spot Detail Modal -->
+    <div id="spot-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white border border-purple-100 rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto custom-scrollbar shadow-2xl flex flex-col relative">
+            <button onclick="closeSpotModal()" class="absolute top-4 right-4 z-10 w-8 h-8 bg-white/80 hover:bg-white text-slate-600 rounded-full flex items-center justify-center border border-slate-200 shadow-md transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <div id="modal-image-gallery" class="relative bg-slate-100 h-60 sm:h-72 w-full flex overflow-x-auto snap-x snap-mandatory custom-scrollbar"></div>
+
+            <div class="p-5 sm:p-6 space-y-5">
+                <div>
+                    <div class="flex items-center gap-2 mb-2 flex-wrap" id="modal-badges"></div>
+                    <h2 id="modal-title" class="text-xl sm:text-2xl font-black text-slate-900"></h2>
+                    <p id="modal-idol-info" class="text-xs sm:text-sm text-pink-600 font-bold mt-1 flex items-center gap-1.5"></p>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-purple-50/50 p-4 rounded-2xl border border-purple-100">
+                    <div class="flex items-start gap-2.5">
+                        <i class="fa-solid fa-clock text-purple-600 mt-0.5 text-sm"></i>
+                        <div>
+                            <span class="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">營業/開放時間</span>
+                            <span id="modal-hours" class="text-slate-800 font-medium"></span>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-2.5">
+                        <i class="fa-solid fa-location-dot text-pink-500 mt-0.5 text-sm"></i>
+                        <div>
+                            <span class="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">詳細地址</span>
+                            <span id="modal-address" class="text-slate-800 font-medium"></span>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-2.5">
+                        <i class="fa-solid fa-route text-indigo-500 mt-0.5 text-sm"></i>
+                        <div>
+                            <span class="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">與您的距離</span>
+                            <span id="modal-distance" class="text-slate-800 font-medium">尚未定位</span>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-2.5">
+                        <i class="fa-solid fa-calendar-day text-amber-500 mt-0.5 text-sm"></i>
+                        <div>
+                            <span class="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">造訪時間 / 特典發放</span>
+                            <span id="modal-visit-date" class="text-slate-800 font-medium"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">詳情與巡禮/應援攻略</h3>
+                    <p id="modal-description" class="text-xs sm:text-sm text-slate-700 leading-relaxed bg-slate-50 p-3.5 rounded-xl border border-slate-200/60"></p>
+                </div>
+
+                <div class="flex flex-wrap gap-2.5 pt-2 border-t border-purple-100">
+                    <button id="modal-nav-kakao" class="flex-1 py-2.5 px-4 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-900 font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition">
+                        <i class="fa-solid fa-map-location-dot"></i> Kakao Map 導航
+                    </button>
+                    <button id="modal-nav-google" class="flex-1 py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition">
+                        <i class="fa-solid fa-diamond-turn-right"></i> Google 地圖
+                    </button>
+                    <button id="modal-checkin-btn" class="py-2.5 px-4 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm transition">
+                        <i class="fa-solid fa-camera"></i> 我要打卡
+                    </button>
+                    <button id="modal-save-btn" class="py-2.5 px-4 rounded-xl bg-white hover:bg-purple-50 text-purple-700 font-bold text-xs flex items-center justify-center gap-2 border border-purple-200 shadow-sm transition">
+                        <i class="fa-regular fa-bookmark"></i> 收藏想去
+                    </button>
+                </div>
+
+                <div class="pt-4 border-t border-purple-100">
+                    <h3 class="text-sm font-bold text-slate-800 mb-3 flex items-center justify-between">
+                        <span>粉絲與好友打卡牆 (<span id="modal-checkin-count">0</span>)</span>
+                    </h3>
+                    <div id="modal-checkin-list" class="space-y-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 3: Submit Fan Event / Birthday Cafe Modal -->
+    <div id="add-event-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white border border-purple-100 rounded-3xl max-w-lg w-full max-h-[90vh] overflow-y-auto custom-scrollbar shadow-2xl p-6 relative">
+            <button onclick="closeAddEventModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+            <h2 class="text-lg font-bold text-slate-900 mb-1 flex items-center gap-2">
+                <i class="fa-solid fa-cake-candles text-amber-500"></i> 發布偶像應援/生日活動
+            </h2>
+            <p class="text-xs text-slate-500 mb-4">舉辦生日咖啡廳或杯套應援？刊登到地圖讓全體粉絲前來祝賀！</p>
+
+            <form id="add-event-form" onsubmit="handleAddEvent(event)" class="space-y-4 text-xs">
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">所屬韓國團體 *</label>
+                    <select id="event-group" required class="w-full bg-slate-50 border border-purple-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400"></select>
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">應援主角 / 明星成員 *</label>
+                    <input type="text" id="event-idol" placeholder="例如: Jimin (朴智旻), Jennie..." required class="w-full bg-slate-50 border border-purple-200 rounded-xl px-3 py-2 text-slate-800 placeholder-slate-400">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">應援活動名稱 *</label>
+                    <input type="text" id="event-title" placeholder="例如: JIMIN Birthday Cafe: Serendipity 應援" required class="w-full bg-slate-50 border border-purple-200 rounded-xl px-3 py-2 text-slate-800 placeholder-slate-400">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">活動開始日期 *</label>
+                        <input type="date" id="event-start-date" required class="w-full bg-slate-50 border border-purple-200 rounded-xl px-3 py-2 text-slate-800">
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">活動結束日期 *</label>
+                        <input type="date" id="event-end-date" required class="w-full bg-slate-50 border border-purple-200 rounded-xl px-3 py-2 text-slate-800">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">現場應援特典 / 贈品</label>
+                    <input type="text" id="event-perks" placeholder="例如: 買飲料送專屬杯套 + 隨機小卡2張" class="w-full bg-slate-50 border border-purple-200 rounded-xl px-3 py-2 text-slate-800 placeholder-slate-400">
+                </div>
+
+                <div class="bg-amber-50/70 border border-amber-200 p-3 rounded-2xl space-y-2">
+                    <div class="flex items-center justify-between">
+                        <label class="font-bold text-amber-900 flex items-center gap-1.5">
+                            <i class="fa-solid fa-location-dot text-pink-500"></i> 活動地點座標 *
+                        </label>
+                        <button type="button" onclick="startLocationPicker('event')" class="px-3 py-1 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs">
+                            <i class="fa-solid fa-map-pin"></i> 地圖點選
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 text-[11px]">
+                        <div>
+                            <span class="text-slate-500">緯度 (Lat):</span>
+                            <input type="number" step="any" id="event-lat" placeholder="點擊上方選擇" required class="w-full bg-white border border-amber-200 rounded-lg px-2.5 py-1.5 text-slate-800 mt-0.5">
+                        </div>
+                        <div>
+                            <span class="text-slate-500">經度 (Lng):</span>
+                            <input type="number" step="any" id="event-lng" placeholder="點擊上方選擇" required class="w-full bg-white border border-amber-200 rounded-lg px-2.5 py-1.5 text-slate-800 mt-0.5">
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">地址 / 店名 *</label>
+                    <input type="text" id="event-address" placeholder="例如: 首爾特別市麻浦區 聖水洞某某咖啡廳" required class="w-full bg-slate-50 border border-purple-200 rounded-xl px-3 py-2 text-slate-800 placeholder-slate-400">
+                </div>
+
+                <!-- Event Poster Photo -->
+                <div class="space-y-1.5">
+                    <label class="block font-semibold text-slate-700">應援活動海報照片</label>
+                    <div class="flex gap-2">
+                        <button type="button" onclick="triggerCameraCapture('preview-event-poster', setEventPosterPhoto)" class="flex-1 py-2 px-3 rounded-xl bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-700 text-center flex items-center justify-center gap-1.5 font-semibold">
+                            <i class="fa-solid fa-camera text-purple-600"></i> 相機拍攝
+                        </button>
+                        <label class="flex-1 cursor-pointer py-2 px-3 rounded-xl bg-pink-50 hover:bg-pink-100 border border-pink-200 text-pink-700 text-center flex items-center justify-center gap-1.5 font-semibold">
+                            <i class="fa-solid fa-images text-pink-600"></i> 相簿選擇
+                            <input type="file" accept="image/*" onchange="previewImageFile(this, 'preview-event-poster', setEventPosterPhoto)" class="hidden">
+                        </label>
+                    </div>
+                    <img id="preview-event-poster" class="hidden w-full h-36 object-cover rounded-xl border border-slate-200 mt-2">
+                </div>
+
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">活動詳細介紹 & 主辦粉絲專頁</label>
+                    <textarea id="event-desc" rows="3" placeholder="註明營業時間、注意事項、IG/X(Twitter) 帳號..." class="w-full bg-slate-50 border border-purple-200 rounded-xl px-3 py-2 text-slate-800 placeholder-slate-400"></textarea>
+                </div>
+                
+                <button type="submit" class="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-pink-500 hover:from-amber-600 hover:to-pink-600 font-bold text-white shadow-md transition">
+                    發布應援活動至地圖與資訊欄
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 4: Add Custom Spot Modal -->
+    <div id="add-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white border border-purple-100 rounded-3xl max-w-lg w-full max-h-[90vh] overflow-y-auto custom-scrollbar shadow-2xl p-6 relative">
+            <button onclick="closeAddSpotModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+            <h2 class="text-xl font-bold text-slate-900 mb-1 flex items-center gap-2">
+                <i class="fa-solid fa-map-pin text-purple-600"></i> 新增巡禮景點
+            </h2>
+            <p class="text-xs text-slate-500 mb-4">發現地圖上沒有的愛豆足跡？分享給全世界的粉絲吧！</p>
+
+            <form id="add-spot-form" onsubmit="handleAddSpot(event)" class="space-y-4 text-xs">
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">所屬韓國團體 *</label>
+                    <select id="add-group" required class="w-full bg-slate-50 border border-purple-200 rounded-xl px-3 py-2 text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-400"></select>
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">造訪明星 / 成員名稱 *</label>
+                    <input type="text" id="add-idol" placeholder="例: V & Jungkook, 全員..." required class="w-full bg-slate-50 border border-purple-200 rounded-xl px-3 py-2 text-slate-800 placeholder-slate-400">
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">景點/店家名稱 *</label>
+                    <input type="text" id="add-title" placeholder="例: 聖水洞人氣咖啡廳..." required class="w-full bg-slate-50 border border-purple-200 rounded-xl px-3 py-2 text-slate-800 placeholder-slate-400">
+                </div>
+
+                <div class="bg-purple-50/70 border border-purple-200 p-3 rounded-2xl space-y-2">
+                    <div class="flex items-center justify-between">
+                        <label class="font-bold text-purple-900 flex items-center gap-1.5">
+                            <i class="fa-solid fa-location-dot text-pink-500"></i> 景點位置座標 *
+                        </label>
+                        <button type="button" onclick="startLocationPicker('spot')" class="px-3 py-1 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs">
+                            <i class="fa-solid fa-map-pin"></i> 地圖點選
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 text-[11px]">
+                        <div>
+                            <span class="text-slate-500">緯度 (Lat):</span>
+                            <input type="number" step="any" id="add-lat" placeholder="點擊上方選擇" required class="w-full bg-white border border-purple-200 rounded-lg px-2.5 py-1.5 text-slate-800 mt-0.5">
+                        </div>
+                        <div>
+                            <span class="text-slate-500">經度 (Lng):</span>
+                            <input type="number" step="any" id="add-lng" placeholder="點擊上方選擇" required class="w-full bg-white border border-purple-200 rounded-lg px-2.5 py-1.5 text-slate-800 mt-0.5">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">分類 *</label>
+                        <select id="add-category" required class="w-full bg-slate-50 border border-purple-200 rounded-xl px-3 py-2 text-slate-800">
+                            <option value="MV拍攝">🎬 MV 拍攝地</option>
+                            <option value="美食餐廳">🍜 同款美食/餐廳</option>
+                            <option value="節目/旅遊">✈️ 綜藝/旅遊景點</option>
+                            <option value="粉絲私房">⭐ 粉絲推薦/私房打卡</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-semibold text-slate-700 mb-1">營業/開放時間</label>
+                        <input type="text" id="add-hours" placeholder="例: 11:00 - 22:00" class="w-full bg-slate-50 border border-purple-200 rounded-xl px-3 py-2 text-slate-800 placeholder-slate-400">
+                    </div>
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">地址 *</label>
+                    <input type="text" id="add-address" placeholder="例: 首爾特別市麻浦區..." required class="w-full bg-slate-50 border border-purple-200 rounded-xl px-3 py-2 text-slate-800 placeholder-slate-400">
+                </div>
+
+                <div class="space-y-1.5">
+                    <label class="block font-semibold text-slate-700">景點現場照片</label>
+                    <div class="flex gap-2">
+                        <button type="button" onclick="triggerCameraCapture('preview-add-spot', setUploadedSpotPhoto)" class="flex-1 py-2 px-3 rounded-xl bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-700 text-center flex items-center justify-center gap-1.5 font-semibold">
+                            <i class="fa-solid fa-camera text-purple-600"></i> 相機拍攝
+                        </button>
+                        <label class="flex-1 cursor-pointer py-2 px-3 rounded-xl bg-pink-50 hover:bg-pink-100 border border-pink-200 text-pink-700 text-center flex items-center justify-center gap-1.5 font-semibold">
+                            <i class="fa-solid fa-images text-pink-600"></i> 相簿選擇
+                            <input type="file" accept="image/*" onchange="previewImageFile(this, 'preview-add-spot', setUploadedSpotPhoto)" class="hidden">
+                        </label>
+                    </div>
+                    <img id="preview-add-spot" class="hidden w-full h-32 object-cover rounded-xl border border-slate-200 mt-2">
+                </div>
+
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">景點介紹與巡禮小技巧</label>
+                    <textarea id="add-desc" rows="3" placeholder="寫下打卡心得或如何找到明星同款座位..." class="w-full bg-slate-50 border border-purple-200 rounded-xl px-3 py-2 text-slate-800 placeholder-slate-400"></textarea>
+                </div>
+                
+                <button type="submit" class="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 font-bold text-white shadow-md transition">
+                    發布景點至地圖
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 5: Fan Check-in Upload Modal -->
+    <div id="user-checkin-modal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white border border-purple-100 rounded-3xl max-w-md w-full p-6 relative shadow-2xl">
+            <button onclick="closeUserCheckinModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+                <i class="fa-solid fa-xmark text-lg"></i>
+            </button>
+            <h2 class="text-lg font-bold text-slate-900 mb-1 flex items-center gap-2">
+                <i class="fa-solid fa-camera-retro text-pink-600"></i> 我要打卡認證
+            </h2>
+            <p id="checkin-modal-spot-title" class="text-xs text-purple-600 font-bold mb-4">景點打卡</p>
+
+            <form id="checkin-form" onsubmit="handleUserCheckin(event)" class="space-y-4 text-xs">
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">打卡身分 (目前為本尊帳號)</label>
+                    <input type="text" id="checkin-user-name-display" readonly class="w-full bg-purple-50 border border-purple-200 rounded-xl px-3 py-2 text-purple-900 font-bold">
+                </div>
+                
+                <div class="space-y-1.5">
+                    <label class="block font-semibold text-slate-700">現場打卡照片</label>
+                    <div class="flex gap-2">
+                        <button type="button" onclick="triggerCameraCapture('preview-checkin-photo', setCheckinPhoto)" class="flex-1 py-2 px-3 rounded-xl bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-700 text-center flex items-center justify-center gap-1.5 font-semibold">
+                            <i class="fa-solid fa-camera text-purple-600"></i> 相機拍攝
+                        </button>
+                        <label class="flex-1 cursor-pointer py-2 px-3 rounded-xl bg-pink-50 hover:bg-pink-100 border border-pink-200 text-pink-700 text-center flex items-center justify-center gap-1.5 font-semibold">
+                            <i class="fa-solid fa-images text-pink-600"></i> 相簿選擇
+                            <input type="file" accept="image/*" onchange="previewImageFile(this, 'preview-checkin-photo', setCheckinPhoto)" class="hidden">
+                        </label>
+                    </div>
+                    <img id="preview-checkin-photo" class="hidden w-full h-36 object-cover rounded-xl border border-slate-200 mt-2">
+                </div>
+
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">心得與打卡筆記 *</label>
+                    <textarea id="checkin-note" rows="3" placeholder="坐在愛豆同款位置！咖啡跟氛圍超棒..." required class="w-full bg-slate-50 border border-purple-200 rounded-xl px-3 py-2 text-slate-800 placeholder-slate-400"></textarea>
+                </div>
+                <button type="submit" class="w-full py-2.5 rounded-xl bg-pink-600 hover:bg-pink-700 font-bold text-white shadow-md transition">
+                    發布巡禮打卡認證
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Notification Overlay -->
+    <div id="toast-message" class="hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[80] bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-2.5">
+        <i id="toast-icon" class="fa-solid fa-circle-check text-purple-400 text-base"></i>
+        <span id="toast-text" class="text-xs font-semibold"></span>
+    </div>
+
+    <script>
+        // Global K-Pop Groups Config
+        const GROUPS = [
+            { id: 'ALL', name: '全部偶像', color: '#9333ea', icon: 'fa-star' },
+            { id: 'BTS', name: 'BTS 防彈少年團', color: '#8b5cf6', icon: 'fa-crown' },
+            { id: 'BLACKPINK', name: 'BLACKPINK', color: '#ec4899', icon: 'fa-gem' },
+            { id: 'TWICE', name: 'TWICE', color: '#f97316', icon: 'fa-heart' },
+            { id: 'SEVENTEEN', name: 'SEVENTEEN', color: '#3b82f6', icon: 'fa-diamond' },
+            { id: 'BOYNEXTDOOR', name: 'BOYNEXTDOOR', color: '#14b8a6', icon: 'fa-house' },
+            { id: 'NEWJEANS', name: 'NewJeans', color: '#06b6d4', icon: 'fa-bolt' },
+            { id: 'IVE', name: 'IVE', color: '#e11d48', icon: 'fa-sparkles' },
+            { id: 'AESPA', name: 'aespa', color: '#8b5cf6', icon: 'fa-wand-magic-sparkles' },
+            { id: 'LE_SSERAFIM', name: 'LE SSERAFIM', color: '#d946ef', icon: 'fa-feather' },
+            { id: 'STRAY_KIDS', name: 'Stray Kids', color: '#ef4444', icon: 'fa-bolt' },
+            { id: 'ENHYPEN', name: 'ENHYPEN', color: '#6366f1', icon: 'fa-moon' },
+            { id: 'TXT', name: 'TOMORROW X TOGETHER', color: '#0ea5e9', icon: 'fa-star' },
+            { id: 'RIIZE', name: 'RIIZE', color: '#f59e0b', icon: 'fa-fire' },
+            { id: 'NCT', name: 'NCT', color: '#22c55e', icon: 'fa-circle' },
+            { id: 'EXO', name: 'EXO', color: '#64748b', icon: 'fa-gem' },
+            { id: 'RED_VELVET', name: 'Red Velvet', color: '#dc2626', icon: 'fa-heart' },
+            { id: 'GIDLE', name: '(G)I-DLE', color: '#a855f7', icon: 'fa-star' },
+            { id: 'ITZY', name: 'ITZY', color: '#f43f5e', icon: 'fa-bolt' },
+            { id: 'ATEEZ', name: 'ATEEZ', color: '#7c3aed', icon: 'fa-compass' },
+            { id: 'ZEROBASEONE', name: 'ZEROBASEONE', color: '#38bdf8', icon: 'fa-sparkles' },
+            { id: 'CORTIS', name: 'CORTIS', color: '#10b981', icon: 'fa-heart' }
+        ];
+
+        // Current User Profile State
+        let currentUser = {
+            name: '智旻的小麻糬',
+            handle: 'jimin_mochi_95',
+            avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&q=80',
+            friends: [
+                { name: 'ARMY_Sora', handle: 'army_sora_kr', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&q=80' }
+            ]
+        };
+
+        // Preset Initial K-Pop Spots Data for immediately active interface
+        let SPOTS = [
+            {
+                id: 101,
+                isEvent: false,
+                groupId: 'BTS',
+                groupName: 'BTS 防彈少年團',
+                idolName: 'BTS 全員',
+                title: 'HYBE 大樓 (HYBE INSIGHT)',
+                category: '節目/旅遊',
+                lat: 37.5245,
+                lng: 126.9638,
+                address: '首爾特別市龍山區漢江大路 42',
+                hours: '10:00 - 19:00 (週一公休)',
+                visitDate: '常設聖地',
+                description: 'HYBE 娛樂總部大樓！週邊有非常多的 BTS 主題壁畫與咖啡廳，是全體 ARMY 抵達首爾首要必訪的聖地！',
+                heroImage: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=800&q=80',
+                checkins: [
+                    {
+                        id: 'ck-1',
+                        name: 'ARMY_Sora',
+                        userHandle: 'army_sora_kr',
+                        date: '2026-09-15',
+                        note: '今天來到 HYBE 大樓門口，附近的杯套咖啡廳超漂亮！',
+                        photo: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=400&q=80'
+                    }
+                ]
+            },
+            {
+                id: 102,
+                isEvent: true,
+                groupId: 'BTS',
+                groupName: 'BTS 防彈少年團',
+                idolName: 'Jimin (朴智旻)',
+                title: 'JIMIN 生日慶祝主題咖啡廳: Serendipity 應援',
+                category: '應援活動',
+                lat: 37.5563,
+                lng: 126.9228,
+                address: '首爾特別市麻浦區弘大入口站 8號出口旁 Cafe',
+                hours: '11:00 - 20:00',
+                visitDate: '2026-10-10 ~ 2026-10-14',
+                perks: '買特調飲料送專屬杯套 + 明信片 2張 + 限量小卡',
+                description: '慶祝 Jimin 生日特別舉辦的應援咖啡廳，現場設有專屬 Photo Zone 拍貼機與大型特展展示牆！',
+                heroImage: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80',
+                checkins: []
+            },
+            {
+                id: 103,
+                isEvent: false,
+                groupId: 'AESPA',
+                groupName: 'aespa',
+                idolName: 'aespa 全員',
+                title: 'KWANGYA @ SEOUL (SM 旗艦店)',
+                category: '粉絲私房',
+                lat: 37.5445,
+                lng: 127.0442,
+                address: '首爾特別市城東區往十里路 83-21 (聖水洞)',
+                hours: '10:30 - 20:00',
+                visitDate: '常設店面',
+                description: 'SM 娛樂位於聖水洞的曠野概念旗艦店，透明地板下展示著專輯，設有獨家 AR 體驗區與限量週邊商品。',
+                heroImage: 'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=800&q=80',
+                checkins: []
+            },
+            {
+                id: 104,
+                isEvent: false,
+                groupId: 'NEWJEANS',
+                groupName: 'NewJeans',
+                idolName: 'NewJeans',
+                title: '弘大文青相片館 (Ditto MV 氛圍打卡地)',
+                category: 'MV拍攝',
+                lat: 37.5532,
+                lng: 126.9241,
+                address: '首爾特別市麻浦區臥牛山路 21街',
+                hours: '12:00 - 22:00',
+                visitDate: '粉絲推薦',
+                description: '充滿復古 Y2K 氛圍的復古底片相機打卡點，吸引無數 Bunnies 特地前來拍攝同款復古拍立得照片！',
+                heroImage: 'https://images.unsplash.com/photo-1526481280693-3bfa7568e0f3?w=800&q=80',
+                checkins: []
+            }
+        ];
+
+        // Global Map & UI State
+        let map;
+        let markers = [];
+        let userMarker = null;
+        let tempPickerMarker = null;
+        let userLocation = null;
+        let selectedGroup = 'ALL';
+        let activeSpotForCheckin = null;
+        let isPickingLocation = false;
+        let pickingMode = 'spot';
+        let showFriendsOnlyFeed = false;
+        let savedSpotIds = JSON.parse(localStorage.getItem('kspot_saved_spots') || '[]');
+        let showSavedOnly = false;
+
+        // Image Stores for Uploads
+        let uploadedSpotPhoto = null;
+        let uploadedEventPoster = null;
+        let uploadedCheckinPhoto = null;
+
+        // Camera WebRTC Stream State
+        let activeCameraCallback = null;
+        let activePreviewImgId = null;
+
+        // Toast Notification Helper
+        function showToast(message, icon = 'fa-circle-check') {
+            const toast = document.getElementById('toast-message');
+            const toastText = document.getElementById('toast-text');
+            const toastIcon = document.getElementById('toast-icon');
+
+            toastText.innerText = message;
+            toastIcon.className = `fa-solid ${icon} text-purple-400 text-base`;
+
+            toast.classList.remove('hidden');
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 3000);
+        }
+
+        // Normal Camera / Photo Picker
+        function triggerCameraCapture(targetImgId, storageCallback) {
+            activePreviewImgId = targetImgId;
+            activeCameraCallback = storageCallback;
+            document.getElementById('camera-modal').classList.remove('hidden');
+        }
+
+        function handleCameraFile(input) {
+            if (!input.files || !input.files[0]) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const result = e.target.result;
+                const img = activePreviewImgId ? document.getElementById(activePreviewImgId) : null;
+                if (img) { img.src = result; img.classList.remove('hidden'); }
+                if (activeCameraCallback) activeCameraCallback(result);
+                closeCameraModal();
+                input.value = '';
+                showToast('成功選擇照片！', 'fa-camera');
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+
+        function closeCameraModal() {
+            document.getElementById('camera-modal').classList.add('hidden');
+            const cameraInput = document.getElementById('camera-file-input');
+            const galleryInput = document.getElementById('camera-gallery-input');
+            if (cameraInput) cameraInput.value = '';
+            if (galleryInput) galleryInput.value = '';
+        }
+
+        // Local Album File Picker Preview
+        function previewImageFile(input, targetImgId, storageCallback) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const result = e.target.result;
+                    const img = document.getElementById(targetImgId);
+                    if (img) {
+                        img.src = result;
+                        img.classList.remove('hidden');
+                    }
+                    if (storageCallback) storageCallback(result);
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        // Storage Callbacks
+        function setUploadedSpotPhoto(url) { uploadedSpotPhoto = url; }
+        function setEventPosterPhoto(url) { uploadedEventPoster = url; }
+        function setCheckinPhoto(url) { uploadedCheckinPhoto = url; }
+        function setProfileAvatar(url) { 
+            currentUser.avatar = url; 
+            document.getElementById('header-user-avatar').src = url;
+            document.getElementById('profile-avatar-img').src = url;
+            showToast("成功更新個人頭像！", "fa-user-check");
+        }
+
+        // Real GPS Geolocation Handler
+        function requestRealGPS() {
+            if (!navigator.geolocation) {
+                showToast("您的裝置或瀏覽器不支援 GPS 定位。", "fa-triangle-exclamation");
+                return;
+            }
+
+            const gpsIcon = document.getElementById('gps-icon');
+            const gpsText = document.getElementById('gps-text');
+
+            gpsIcon.className = 'fa-solid fa-spinner fa-spin text-purple-600';
+            gpsText.innerText = '定位中...';
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    userLocation = { lat, lng };
+
+                    gpsIcon.className = 'fa-solid fa-location-crosshairs text-purple-600';
+                    gpsText.innerText = '已定位';
+
+                    if (userMarker) map.removeLayer(userMarker);
+
+                    const userIcon = L.divIcon({
+                        className: 'user-gps-marker',
+                        html: `
+                            <div class="relative flex items-center justify-center">
+                                <div class="w-8 h-8 rounded-full bg-purple-500/30 gps-pulse absolute"></div>
+                                <div class="w-5 h-5 rounded-full bg-purple-600 border-2 border-white shadow-lg flex items-center justify-center text-white text-[9px]">
+                                    <i class="fa-solid fa-user"></i>
+                                </div>
+                            </div>
+                        `,
+                        iconSize: [24, 24],
+                        iconAnchor: [12, 12]
+                    });
+
+                    userMarker = L.marker([lat, lng], { icon: userIcon }).addTo(map);
+                    userMarker.bindPopup('<div class="p-2 text-xs font-bold text-center text-slate-800">您的位置 (Real GPS)</div>');
+
+                    map.flyTo([lat, lng], 14, { duration: 1.5 });
+
+                    document.getElementById('location-banner').classList.remove('hidden');
+                    document.getElementById('location-status-text').innerText = `已成功定位在 (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+
+                    renderSpots();
+                    showToast("成功取得您的真實 GPS 定位！", "fa-location-arrow");
+                },
+                (error) => {
+                    console.error("Geolocation error:", error);
+                    gpsIcon.className = 'fa-solid fa-location-crosshairs text-purple-600';
+                    gpsText.innerText = '我的真實定位';
+                    let errorMsg = "無法取得您的真實定位。";
+                    if (error.code === error.PERMISSION_DENIED) {
+                        errorMsg = "您已拒絕位置存取權限，請於瀏覽器設定中開啟。";
+                    }
+                    showToast(errorMsg, "fa-triangle-exclamation");
+                },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            );
+        }
+
+        function clearGPS() {
+            userLocation = null;
+            if (userMarker) map.removeLayer(userMarker);
+            document.getElementById('location-banner').classList.add('hidden');
+            renderSpots();
+            showToast("已清除定位狀態");
+        }
+
+        // Distance Calculator Helper (Haversine formula in KM)
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Earth radius in km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+
+        function formatDistance(km) {
+            if (km < 1) {
+                return `${Math.round(km * 1000)} 公尺`;
+            }
+            return `${km.toFixed(1)} 公里`;
+        }
+
+        // Account & Personal Profile Page
+        function openProfileModal() {
+            document.getElementById('profile-display-name').innerText = currentUser.name;
+            document.getElementById('profile-handle-id').innerText = `@${currentUser.handle}`;
+            document.getElementById('edit-user-name').value = currentUser.name;
+            document.getElementById('edit-user-handle').value = currentUser.handle;
+            document.getElementById('profile-avatar-img').src = currentUser.avatar;
+            document.getElementById('header-user-avatar').src = currentUser.avatar;
+
+            switchProfileTab('checkins');
+            updateProfileDashboardStats();
+            document.getElementById('profile-modal').classList.remove('hidden');
+        }
+
+        function closeProfileModal() {
+            document.getElementById('profile-modal').classList.add('hidden');
+        }
+
+        function switchProfileTab(tab) {
+            const btnCheckins = document.getElementById('prof-tab-checkins');
+            const btnFriends = document.getElementById('prof-tab-friends');
+            const btnEdit = document.getElementById('prof-tab-edit');
+
+            const secCheckins = document.getElementById('prof-sec-checkins');
+            const secFriends = document.getElementById('prof-sec-friends');
+            const secEdit = document.getElementById('prof-sec-edit');
+
+            const inactive = 'py-1.5 rounded-lg text-slate-600 hover:text-purple-700 transition font-semibold';
+            const active = 'py-1.5 rounded-lg bg-purple-600 text-white transition shadow-sm font-bold';
+
+            btnCheckins.className = inactive;
+            btnFriends.className = inactive;
+            btnEdit.className = inactive;
+
+            secCheckins.classList.add('hidden');
+            secFriends.classList.add('hidden');
+            secEdit.classList.add('hidden');
+
+            if (tab === 'checkins') {
+                btnCheckins.className = active;
+                secCheckins.classList.remove('hidden');
+                renderMyPersonalCheckins();
+            } else if (tab === 'friends') {
+                btnFriends.className = active;
+                secFriends.classList.remove('hidden');
+                renderFriendsList();
+            } else {
+                btnEdit.className = active;
+                secEdit.classList.remove('hidden');
+            }
+        }
+
+        function updateProfileDashboardStats() {
+            let totalMyCheckins = 0;
+            let myVisitedSpots = new Set();
+
+            SPOTS.forEach(spot => {
+                spot.checkins.forEach(c => {
+                    if ((c.userHandle || '').toLowerCase() === currentUser.handle.toLowerCase()) {
+                        totalMyCheckins++;
+                        myVisitedSpots.add(spot.id);
+                    }
+                });
+            });
+
+            document.getElementById('user-stats-checkins').innerText = totalMyCheckins;
+            document.getElementById('user-stats-spots').innerText = myVisitedSpots.size;
+            document.getElementById('user-stats-friends').innerText = currentUser.friends.length;
+            document.getElementById('friends-badge-count').innerText = currentUser.friends.length;
+            document.getElementById('header-user-name').innerText = currentUser.name;
+        }
+
+        function renderMyPersonalCheckins() {
+            const container = document.getElementById('user-my-checkins-list');
+            if (!container) return;
+
+            let myPosts = [];
+            SPOTS.forEach(spot => {
+                spot.checkins.forEach(c => {
+                    if ((c.userHandle || '').toLowerCase() === currentUser.handle.toLowerCase()) {
+                        myPosts.push({
+                            ...c,
+                            spotTitle: spot.title,
+                            spotCategory: spot.category,
+                            groupName: spot.groupName,
+                            spotId: spot.id
+                        });
+                    }
+                });
+            });
+
+            if (myPosts.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8 bg-purple-50/50 rounded-2xl border border-purple-100">
+                        <i class="fa-solid fa-camera-retro text-2xl text-purple-300 mb-1 block"></i>
+                        <p class="text-xs text-slate-600 font-medium">您尚未發布任何打卡認證！</p>
+                        <p class="text-[11px] text-slate-400 mt-1">前往地圖點選景點並按下「我要打卡」吧！</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = myPosts.map(post => `
+                <div class="bg-white hover:bg-purple-50/50 p-3 rounded-2xl border border-purple-100 flex gap-3 shadow-xs">
+                    ${post.photo ? `<img src="${post.photo}" class="w-16 h-16 rounded-xl object-cover shrink-0 border border-purple-200">` : ''}
+                    <div class="flex-1 min-w-0 flex flex-col justify-between text-xs">
+                        <div>
+                            <div class="flex items-center justify-between mb-0.5">
+                                <span class="font-bold text-purple-800 truncate cursor-pointer hover:underline" onclick="closeProfileModal(); openSpotModal(${post.spotId});">
+                                    <i class="fa-solid fa-location-dot text-pink-500 mr-1"></i>${post.spotTitle}
+                                </span>
+                                <span class="text-[10px] text-slate-400">${post.date}</span>
+                            </div>
+                            <p class="text-slate-700 line-clamp-2">${post.note}</p>
+                        </div>
+                        <div class="flex items-center justify-between mt-1 text-[10px] text-slate-400">
+                            <span class="px-2 py-0.2 rounded bg-purple-100 text-purple-700 font-semibold border border-purple-200">
+                                ${post.groupName}・${post.spotCategory}
+                            </span>
+                            <button onclick="deleteMyCheckin('${post.id}')" class="text-slate-400 hover:text-red-500 transition">
+                                <i class="fa-solid fa-trash-can mr-0.5"></i>刪除
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function deleteMyCheckin(checkinId) {
+            SPOTS.forEach(spot => {
+                spot.checkins = spot.checkins.filter(c => c.id !== checkinId);
+            });
+
+            renderMyPersonalCheckins();
+            updateProfileDashboardStats();
+            renderCommunityFeed();
+            renderSpots();
+            showToast('已成功刪除該筆打卡紀錄');
+        }
+
+        function saveUserProfile() {
+            const name = document.getElementById('edit-user-name').value.trim();
+            const handle = document.getElementById('edit-user-handle').value.trim().replace('@', '');
+
+            if (!name || !handle) {
+                showToast("請填寫暱稱與專屬 ID", "fa-triangle-exclamation");
+                return;
+            }
+
+            currentUser.name = name;
+            currentUser.handle = handle;
+
+            document.getElementById('header-user-name').innerText = name;
+            document.getElementById('profile-display-name').innerText = name;
+            document.getElementById('profile-handle-id').innerText = `@${handle}`;
+
+            showToast("個人資料更新成功！");
+            switchProfileTab('checkins');
+        }
+
+        function addNewFriend() {
+            const input = document.getElementById('add-friend-input');
+            const val = input.value.trim();
+            if (!val) return;
+
+            const handleClean = val.replace('@', '');
+            const exists = currentUser.friends.some(f => f.handle.toLowerCase() === handleClean.toLowerCase());
+            if (exists) {
+                showToast("對方已在您的好友名單中！", "fa-circle-info");
+                return;
+            }
+
+            const newFriend = {
+                name: val.startsWith('@') ? val : `@${val}`,
+                handle: handleClean,
+                avatar: `https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&q=80`
+            };
+
+            currentUser.friends.push(newFriend);
+            input.value = '';
+            renderFriendsList();
+            updateProfileDashboardStats();
+            renderCommunityFeed();
+            showToast(`成功新增好友：${newFriend.name}！`, 'fa-user-check');
+        }
+
+        function removeFriend(handle) {
+            currentUser.friends = currentUser.friends.filter(f => f.handle !== handle);
+            renderFriendsList();
+            updateProfileDashboardStats();
+            renderCommunityFeed();
+            showToast("已移除好友");
+        }
+
+        function renderFriendsList() {
+            const container = document.getElementById('friends-list-container');
+            if (!container) return;
+
+            if (currentUser.friends.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-400 py-3 text-center">尚無好友，輸入追星 ID 關注朋友吧！</p>`;
+                return;
+            }
+
+            container.innerHTML = currentUser.friends.map(f => `
+                <div class="bg-purple-50/50 p-2.5 rounded-xl border border-purple-100 flex items-center justify-between">
+                    <div class="flex items-center gap-2.5">
+                        <img src="${f.avatar}" class="w-8 h-8 rounded-full object-cover border border-purple-300">
+                        <div>
+                            <span class="text-xs font-bold text-slate-800 block">${f.name}</span>
+                            <span class="text-[10px] text-purple-600 font-mono">@${f.handle}</span>
+                        </div>
+                    </div>
+                    <button onclick="removeFriend('${f.handle}')" class="text-slate-400 hover:text-red-500 text-xs px-2 py-1">
+                        <i class="fa-solid fa-user-xmark"></i>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        // Filter and Search Logic
+        function getFilteredSpots() {
+            const categorySelect = document.getElementById('category-filter');
+            const searchInput = document.getElementById('search-input');
+            const category = categorySelect ? categorySelect.value : 'ALL';
+            const search = searchInput ? searchInput.value.trim().toLowerCase() : '';
+
+            return SPOTS.filter(spot => {
+                const matchGroup = selectedGroup === 'ALL' || spot.groupId === selectedGroup;
+                const matchSaved = !showSavedOnly || savedSpotIds.includes(spot.id);
+                const matchCategory = category === 'ALL' || 
+                    (category === '應援活動' && spot.isEvent) ||
+                    (category !== '應援活動' && spot.category === category);
+                
+                const matchSearch = !search || 
+                    spot.title.toLowerCase().includes(search) || 
+                    spot.idolName.toLowerCase().includes(search) || 
+                    spot.groupName.toLowerCase().includes(search) || 
+                    spot.address.toLowerCase().includes(search) ||
+                    spot.description.toLowerCase().includes(search);
+
+                return matchGroup && matchCategory && matchSearch && matchSaved;
+            });
+        }
+
+        function updateSavedSpotsUI() {
+            savedSpotIds = savedSpotIds.filter(id => SPOTS.some(s => s.id === id));
+            localStorage.setItem('kspot_saved_spots', JSON.stringify(savedSpotIds));
+            const count = document.getElementById('saved-spots-count');
+            if (count) count.innerText = savedSpotIds.length;
+            const btn = document.getElementById('saved-spots-toggle');
+            if (btn) {
+                btn.className = showSavedOnly
+                    ? 'px-2.5 py-1 rounded-xl bg-purple-600 text-white text-[11px] font-bold border border-purple-600 transition shadow-sm'
+                    : 'px-2.5 py-1 rounded-xl bg-white text-purple-700 text-[11px] font-bold border border-purple-200 transition shadow-sm';
+                btn.innerHTML = `<i class="fa-${showSavedOnly ? 'solid' : 'regular'} fa-bookmark mr-1"></i>我的收藏 <span id="saved-spots-count">${savedSpotIds.length}</span>`;
+            }
+        }
+
+        function toggleSavedOnly() {
+            showSavedOnly = !showSavedOnly;
+            updateSavedSpotsUI();
+            renderSpots();
+        }
+
+        function toggleSaveSpot(spotId) {
+            if (savedSpotIds.includes(spotId)) {
+                savedSpotIds = savedSpotIds.filter(id => id !== spotId);
+                showToast('已從我的收藏移除', 'fa-bookmark');
+            } else {
+                savedSpotIds.push(spotId);
+                showToast('已儲存到「想去的景點／咖啡廳」', 'fa-bookmark');
+            }
+            updateSavedSpotsUI();
+            renderSpots();
+            const spot = SPOTS.find(s => s.id === spotId);
+            if (spot) updateModalSaveButton(spot);
+        }
+
+        function updateModalSaveButton(spot) {
+            const btn = document.getElementById('modal-save-btn');
+            if (!btn) return;
+            const saved = savedSpotIds.includes(spot.id);
+            btn.innerHTML = `<i class="fa-${saved ? 'solid' : 'regular'} fa-bookmark"></i> ${saved ? '已收藏' : '收藏想去'}`;
+        }
+
+        function filterSpots() {
+            renderSpots();
+            renderEventsList();
+        }
+
+        function renderGroupPills() {
+            const container = document.getElementById('group-pills');
+            if (!container) return;
+
+            container.innerHTML = GROUPS.map(g => {
+                const isActive = selectedGroup === g.id;
+                const activeClasses = isActive 
+                    ? 'bg-purple-600 text-white shadow-sm font-bold' 
+                    : 'bg-white hover:bg-purple-50 text-slate-700 border border-purple-200';
+                return `
+                    <button onclick="selectGroup('${g.id}')" class="px-3 py-1.5 rounded-xl text-xs transition flex items-center gap-1.5 whitespace-nowrap ${activeClasses}">
+                        <i class="fa-solid ${g.icon} text-[11px]"></i>
+                        <span>${g.name}</span>
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function selectGroup(groupId) {
+            selectedGroup = groupId;
+            renderGroupPills();
+            filterSpots();
+        }
+
+        function populateGroupSelects() {
+            const spotSelect = document.getElementById('add-group');
+            const eventSelect = document.getElementById('event-group');
+            const options = GROUPS.filter(g => g.id !== 'ALL').map(g => `
+                <option value="${g.id}">${g.name}</option>
+            `).join('');
+
+            if (spotSelect) spotSelect.innerHTML = options;
+            if (eventSelect) eventSelect.innerHTML = options;
+        }
+
+        // Render Spots and Events on Map
+        function renderSpots() {
+            const listContainer = document.getElementById('tab-content-spots');
+            const spots = getFilteredSpots();
+            
+            markers.forEach(m => map.removeLayer(m));
+            markers = [];
+
+            const badge = document.getElementById('sidebar-count-badge');
+            if (badge) badge.innerText = `${spots.length} 個巡禮點`;
+
+            if (!listContainer) return;
+
+            if (spots.length === 0) {
+                listContainer.innerHTML = `
+                    <div class="text-center py-12 text-slate-400">
+                        <i class="fa-solid fa-compass text-3xl mb-2 text-slate-300 block"></i>
+                        <p class="text-xs">沒有找到符合條件的追星地點或應援活動</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            spots.forEach(spot => {
+                const groupObj = GROUPS.find(g => g.id === spot.groupId) || { color: '#9333ea', name: spot.groupName };
+                
+                let distText = '';
+                if (userLocation) {
+                    const dist = calculateDistance(userLocation.lat, userLocation.lng, spot.lat, spot.lng);
+                    distText = `・<span class="text-purple-600 font-bold">${formatDistance(dist)}</span>`;
+                }
+
+                const iconHtml = spot.isEvent ? `
+                    <div class="relative group cursor-pointer animate-bounce">
+                        <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 via-pink-500 to-purple-600 flex items-center justify-center text-white text-base shadow-lg border-2 border-white">
+                            <i class="fa-solid fa-cake-candles"></i>
+                        </div>
+                    </div>
+                ` : `
+                    <div class="relative group cursor-pointer">
+                        <div class="w-9 h-9 rounded-2xl flex items-center justify-center text-white text-sm shadow-md border-2 border-white transition transform group-hover:scale-110" style="background-color: ${groupObj.color}">
+                            <i class="fa-solid fa-location-dot"></i>
+                        </div>
+                    </div>
+                `;
+
+                const markerIcon = L.divIcon({
+                    className: 'custom-spot-marker',
+                    html: iconHtml,
+                    iconSize: [38, 38],
+                    iconAnchor: [19, 19]
+                });
+
+                const marker = L.marker([spot.lat, spot.lng], { icon: markerIcon }).addTo(map);
+                marker.bindPopup(`
+                    <div class="p-3 bg-white text-slate-800 rounded-2xl font-sans">
+                        <div class="relative h-28 w-full rounded-xl overflow-hidden mb-2">
+                            <img src="${spot.heroImage}" class="w-full h-full object-cover">
+                            <span class="absolute top-2 left-2 text-[10px] px-2 py-0.5 rounded-md font-bold text-white shadow-xs" style="background-color: ${spot.isEvent ? '#f59e0b' : groupObj.color}">
+                                ${spot.isEvent ? '🎂 應援活動' : spot.groupName}
+                            </span>
+                        </div>
+                        <h3 class="font-bold text-xs text-slate-900 line-clamp-1 mb-0.5">${spot.title}</h3>
+                        <p class="text-[11px] text-pink-600 font-semibold mb-2">${spot.idolName}</p>
+                        <button onclick="openSpotModal(${spot.id})" class="w-full py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-xs transition">
+                            查看詳情與導航
+                        </button>
+                    </div>
+                `, { closeButton: false });
+
+                markers.push(marker);
+
+                html += `
+                    <div onclick="openSpotModal(${spot.id})" class="bg-white hover:bg-purple-50/60 border border-purple-100 hover:border-purple-300 p-3 rounded-2xl cursor-pointer transition flex gap-3 shadow-xs group relative">
+                        <img src="${spot.heroImage}" class="w-20 h-20 rounded-xl object-cover shrink-0 border border-purple-100">
+                        <button onclick="event.stopPropagation(); toggleSaveSpot(${spot.id})" class="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/95 border border-purple-200 text-purple-600 shadow-sm flex items-center justify-center" title="收藏">
+                            <i class="fa-${savedSpotIds.includes(spot.id) ? 'solid' : 'regular'} fa-bookmark text-xs"></i>
+                        </button>
+                        <div class="flex-1 min-w-0 flex flex-col justify-between">
+                            <div>
+                                <div class="flex items-center gap-1.5 mb-1">
+                                    <span class="text-[10px] font-bold px-2 py-0.5 rounded text-white" style="background-color: ${spot.isEvent ? '#f59e0b' : groupObj.color}">
+                                        ${spot.isEvent ? '🎂 應援咖啡廳' : spot.groupName}
+                                    </span>
+                                    <span class="text-[10px] text-slate-500 font-medium">${spot.category}</span>
+                                </div>
+                                <h3 class="text-xs font-bold text-slate-800 truncate group-hover:text-purple-700 transition">${spot.title}</h3>
+                                <p class="text-[11px] text-pink-600 font-semibold truncate mt-0.5">${spot.idolName}</p>
+                            </div>
+                            <div class="text-[10px] text-slate-500 truncate flex items-center gap-1 mt-1">
+                                <i class="fa-solid fa-location-dot text-purple-400"></i>
+                                <span class="truncate">${spot.address} ${distText}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            listContainer.innerHTML = html;
+        }
+
+        // Render Events Directory Tab
+        function renderEventsList() {
+            const container = document.getElementById('events-list-container');
+            if (!container) return;
+
+            const events = SPOTS.filter(s => s.isEvent && (selectedGroup === 'ALL' || s.groupId === selectedGroup));
+
+            if (events.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8 text-slate-400">
+                        <i class="fa-solid fa-cake-candles text-2xl mb-1 text-slate-300 block"></i>
+                        <p class="text-xs">目前暫無該偶像的應援活動。<br>歡迎成為第一個發布活動的人！</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = events.map(e => `
+                <div onclick="openSpotModal(${e.id})" class="bg-gradient-to-br from-white to-purple-50/50 border border-amber-200/80 p-3.5 rounded-2xl cursor-pointer hover:border-amber-400 transition shadow-xs relative overflow-hidden">
+                    <div class="flex gap-3">
+                        <img src="${e.heroImage}" class="w-24 h-24 rounded-xl object-cover shrink-0 border border-amber-200">
+                        <div class="flex-1 min-w-0 flex flex-col justify-between">
+                            <div>
+                                <div class="flex items-center gap-1.5 mb-1">
+                                    <span class="bg-amber-100 text-amber-800 border border-amber-200 text-[10px] font-bold px-2 py-0.5 rounded-md">
+                                        🎂 生日應援
+                                    </span>
+                                    <span class="text-[10px] text-pink-600 font-bold">${e.idolName}</span>
+                                </div>
+                                <h3 class="text-xs font-bold text-slate-900 line-clamp-1">${e.title}</h3>
+                                <p class="text-[11px] text-slate-600 mt-1 flex items-center gap-1">
+                                    <i class="fa-solid fa-calendar-days text-amber-500 text-[10px]"></i> ${e.visitDate}
+                                </p>
+                            </div>
+                            ${e.perks ? `
+                                <div class="bg-amber-50/80 p-1.5 rounded-lg border border-amber-200 text-[10px] text-amber-900 truncate mt-1">
+                                    <i class="fa-solid fa-gift text-pink-500 mr-1"></i>特典: ${e.perks}
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Render Community & Friends Check-in Feed
+        function renderCommunityFeed() {
+            const feedContainer = document.getElementById('community-feed-container');
+            if (!feedContainer) return;
+
+            let allCheckins = [];
+
+            SPOTS.forEach(spot => {
+                spot.checkins.forEach(c => {
+                    const isFriend = currentUser.friends.some(f => f.handle.toLowerCase() === (c.userHandle || '').toLowerCase());
+                    allCheckins.push({
+                        ...c,
+                        spotTitle: spot.title,
+                        groupName: spot.groupName,
+                        spotId: spot.id,
+                        isFriend: isFriend
+                    });
+                });
+            });
+
+            if (showFriendsOnlyFeed) {
+                allCheckins = allCheckins.filter(c => c.isFriend);
+            }
+
+            if (allCheckins.length === 0) {
+                feedContainer.innerHTML = `
+                    <div class="text-center py-10 text-slate-400">
+                        <i class="fa-solid fa-user-group text-2xl mb-2 text-slate-300 block"></i>
+                        <p class="text-xs">${showFriendsOnlyFeed ? '您的好友尚未發表打卡紀錄。' : '暫無巡禮打卡動態。快成為第一個打卡認證的人吧！'}</p>
+                    </div>
+                `;
+                return;
+            }
+
+            feedContainer.innerHTML = allCheckins.map(post => `
+                <div onclick="openSpotModal(${post.spotId})" class="bg-white hover:bg-purple-50/50 p-3.5 rounded-2xl border ${post.isFriend ? 'border-pink-300 bg-pink-50/30' : 'border-purple-100'} cursor-pointer transition shadow-xs">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center gap-2">
+                            <div class="w-7 h-7 rounded-full bg-gradient-to-tr from-purple-500 to-pink-500 flex items-center justify-center text-white text-xs font-bold">
+                                ${post.name.charAt(0)}
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-1.5">
+                                    <h4 class="text-xs font-bold text-slate-800">${post.name}</h4>
+                                    ${post.isFriend ? `<span class="bg-pink-100 text-pink-600 text-[9px] px-1.5 py-0.2 rounded font-bold border border-pink-200">好友</span>` : ''}
+                                </div>
+                                <span class="text-[10px] text-slate-400">${post.date}</span>
+                            </div>
+                        </div>
+                        <span class="text-[10px] px-2 py-0.5 rounded bg-purple-100 text-purple-700 font-semibold border border-purple-200">
+                            ${post.groupName}
+                        </span>
+                    </div>
+                    <p class="text-xs text-slate-700 mb-2">${post.note}</p>
+                    ${post.photo ? `<img src="${post.photo}" class="w-full h-36 object-cover rounded-xl mb-2 border border-slate-200">` : ''}
+                    <div class="text-[11px] text-purple-600 font-semibold flex items-center gap-1">
+                        <i class="fa-solid fa-location-dot"></i> 打卡於: ${post.spotTitle}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function toggleFriendsOnlyFeed() {
+            showFriendsOnlyFeed = !showFriendsOnlyFeed;
+            const btn = document.getElementById('toggle-friends-feed');
+            if (showFriendsOnlyFeed) {
+                btn.className = 'px-3 py-1 rounded-xl bg-pink-600 text-white text-xs font-bold shadow-sm transition';
+                btn.innerText = '僅看好友';
+            } else {
+                btn.className = 'px-3 py-1 rounded-xl bg-white text-purple-700 text-xs font-bold border border-purple-200 transition shadow-sm';
+                btn.innerText = '全部粉絲';
+            }
+            renderCommunityFeed();
+        }
+
+        function switchSidebarTab(tab) {
+            const spotsBtn = document.getElementById('tab-btn-spots');
+            const eventsBtn = document.getElementById('tab-btn-events');
+            const commBtn = document.getElementById('tab-btn-community');
+
+            const spotsContent = document.getElementById('tab-content-spots');
+            const eventsContent = document.getElementById('tab-content-events');
+            const commContent = document.getElementById('tab-content-community');
+
+            const inactive = 'py-1.5 rounded-lg text-slate-600 hover:text-purple-700 transition font-semibold';
+            const active = 'py-1.5 rounded-lg text-white bg-purple-600 font-bold transition shadow-sm';
+
+            spotsBtn.className = inactive;
+            eventsBtn.className = inactive;
+            commBtn.className = inactive;
+
+            spotsContent.classList.add('hidden');
+            eventsContent.classList.add('hidden');
+            commContent.classList.add('hidden');
+
+            if (tab === 'spots') {
+                spotsBtn.className = active;
+                spotsContent.classList.remove('hidden');
+            } else if (tab === 'events') {
+                eventsBtn.className = active;
+                eventsContent.classList.remove('hidden');
+                renderEventsList();
+            } else {
+                commBtn.className = active;
+                commContent.classList.remove('hidden');
+                renderCommunityFeed();
+            }
+        }
+
+        function initMap() {
+            map = L.map('map', { zoomControl: false }).setView([37.5665, 126.9780], 12);
+
+            // Light Voyager Basemap suitable for Light Purple theme
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                maxZoom: 19,
+                subdomains: 'abcd',
+                attribution: '&copy; OpenStreetMap &copy; CARTO'
+            }).addTo(map);
+
+            L.control.zoom({ position: 'topright' }).addTo(map);
+
+            map.on('click', function(e) {
+                const lat = e.latlng.lat.toFixed(6);
+                const lng = e.latlng.lng.toFixed(6);
+
+                if (isPickingLocation) {
+                    if (pickingMode === 'spot') {
+                        document.getElementById('add-lat').value = lat;
+                        document.getElementById('add-lng').value = lng;
+                    } else {
+                        document.getElementById('event-lat').value = lat;
+                        document.getElementById('event-lng').value = lng;
+                    }
+
+                    if (tempPickerMarker) map.removeLayer(tempPickerMarker);
+
+                    const pickIcon = L.divIcon({
+                        className: 'pick-pin',
+                        html: `
+                            <div class="w-8 h-8 rounded-full bg-pink-500 border-2 border-white shadow-xl flex items-center justify-center text-white animate-bounce">
+                                <i class="fa-solid fa-location-crosshairs text-sm"></i>
+                            </div>
+                        `,
+                        iconSize: [32, 32],
+                        iconAnchor: [16, 16]
+                    });
+
+                    tempPickerMarker = L.marker([lat, lng], { icon: pickIcon }).addTo(map);
+
+                    isPickingLocation = false;
+                    document.getElementById('picking-location-banner').classList.add('hidden');
+
+                    if (pickingMode === 'spot') openAddSpotModal();
+                    else openAddEventModal();
+
+                    showToast(`已設定座標：${lat}, ${lng}`, 'fa-location-dot');
+                }
+            });
+        }
+
+        function centerOnKorea() {
+            if (map) map.flyTo([37.5665, 126.9780], 12, { duration: 1.5 });
+        }
+
+        function startLocationPicker(mode) {
+            pickingMode = mode;
+            if (mode === 'spot') closeAddSpotModal();
+            else closeAddEventModal();
+
+            isPickingLocation = true;
+            document.getElementById('picking-location-banner').classList.remove('hidden');
+            showToast('請在地圖上點選地點座標！', 'fa-hand-pointer');
+        }
+
+        function cancelLocationPicker() {
+            isPickingLocation = false;
+            document.getElementById('picking-location-banner').classList.add('hidden');
+            if (tempPickerMarker) map.removeLayer(tempPickerMarker);
+            if (pickingMode === 'spot') openAddSpotModal();
+            else openAddEventModal();
+        }
+
+        // Modal Handlers
+        function openAddSpotModal() {
+            document.getElementById('add-modal').classList.remove('hidden');
+        }
+
+        function closeAddSpotModal() {
+            document.getElementById('add-modal').classList.add('hidden');
+        }
+
+        function openAddEventModal() {
+            document.getElementById('add-event-modal').classList.remove('hidden');
+        }
+
+        function closeAddEventModal() {
+            document.getElementById('add-event-modal').classList.add('hidden');
+        }
+
+        function handleAddSpot(e) {
+            e.preventDefault();
+            const groupSelect = document.getElementById('add-group');
+            const groupId = groupSelect.value;
+            const groupObj = GROUPS.find(g => g.id === groupId) || { name: 'K-POP Group' };
+
+            const newSpot = {
+                id: Date.now(),
+                isEvent: false,
+                groupId: groupId,
+                groupName: groupObj.name,
+                idolName: document.getElementById('add-idol').value,
+                title: document.getElementById('add-title').value,
+                category: document.getElementById('add-category').value,
+                lat: parseFloat(document.getElementById('add-lat').value),
+                lng: parseFloat(document.getElementById('add-lng').value),
+                address: document.getElementById('add-address').value,
+                hours: document.getElementById('add-hours').value || '尚未提供',
+                visitDate: '粉絲推薦打卡',
+                description: document.getElementById('add-desc').value || '暫無詳細說明。',
+                heroImage: uploadedSpotPhoto || 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=800&q=80',
+                checkins: []
+            };
+
+            SPOTS.unshift(newSpot);
+            closeAddSpotModal();
+            document.getElementById('add-spot-form').reset();
+            document.getElementById('preview-add-spot').classList.add('hidden');
+            uploadedSpotPhoto = null;
+
+            renderSpots();
+            showToast("成功發布新景點至地圖！", "fa-map-pin");
+            map.flyTo([newSpot.lat, newSpot.lng], 14);
+        }
+
+        function handleAddEvent(e) {
+            e.preventDefault();
+            const groupSelect = document.getElementById('event-group');
+            const groupId = groupSelect.value;
+            const groupObj = GROUPS.find(g => g.id === groupId) || { name: 'K-POP Group' };
+
+            const startDate = document.getElementById('event-start-date').value;
+            const endDate = document.getElementById('event-end-date').value;
+
+            const newEvent = {
+                id: Date.now(),
+                isEvent: true,
+                groupId: groupId,
+                groupName: groupObj.name,
+                idolName: document.getElementById('event-idol').value,
+                title: document.getElementById('event-title').value,
+                category: '應援活動',
+                lat: parseFloat(document.getElementById('event-lat').value),
+                lng: parseFloat(document.getElementById('event-lng').value),
+                address: document.getElementById('event-address').value,
+                hours: '見活動說明',
+                visitDate: `${startDate} ~ ${endDate}`,
+                perks: document.getElementById('event-perks').value || '發完為止',
+                description: document.getElementById('event-desc').value || '歡迎所有粉絲前往打卡祝賀！',
+                heroImage: uploadedEventPoster || 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&q=80',
+                checkins: []
+            };
+
+            SPOTS.unshift(newEvent);
+            closeAddEventModal();
+            document.getElementById('add-event-form').reset();
+            document.getElementById('preview-event-poster').classList.add('hidden');
+            uploadedEventPoster = null;
+
+            renderSpots();
+            renderEventsList();
+            showToast("成功發布應援活動！", "fa-cake-candles");
+            map.flyTo([newEvent.lat, newEvent.lng], 14);
+        }
+
+        // Spot Detail Modal Display
+        function openSpotModal(spotId) {
+            const spot = SPOTS.find(s => s.id === spotId);
+            if (!spot) return;
+
+            activeSpotForCheckin = spot;
+
+            const groupObj = GROUPS.find(g => g.id === spot.groupId) || { color: '#9333ea', name: spot.groupName };
+
+            document.getElementById('modal-title').innerText = spot.title;
+            document.getElementById('modal-idol-info').innerText = `${spot.groupName} ・ ${spot.idolName}`;
+            document.getElementById('modal-hours').innerText = spot.hours;
+            document.getElementById('modal-address').innerText = spot.address;
+            document.getElementById('modal-visit-date').innerText = spot.visitDate;
+            document.getElementById('modal-description').innerText = spot.description;
+
+            // Badges
+            const badgesContainer = document.getElementById('modal-badges');
+            badgesContainer.innerHTML = `
+                <span class="text-xs px-2.5 py-0.5 rounded-md font-bold text-white shadow-xs" style="background-color: ${spot.isEvent ? '#f59e0b' : groupObj.color}">
+                    ${spot.isEvent ? '🎂 生日/應援活動' : spot.groupName}
+                </span>
+                <span class="text-xs px-2.5 py-0.5 rounded-md font-bold bg-purple-100 text-purple-700 border border-purple-200">
+                    ${spot.category}
+                </span>
+            `;
+
+            // Distance calculation
+            const distElem = document.getElementById('modal-distance');
+            if (userLocation) {
+                const d = calculateDistance(userLocation.lat, userLocation.lng, spot.lat, spot.lng);
+                distElem.innerText = formatDistance(d);
+            } else {
+                distElem.innerText = '請先啟用「我的真實定位」';
+            }
+
+            // Image Gallery
+            const gallery = document.getElementById('modal-image-gallery');
+            gallery.innerHTML = `
+                <img src="${spot.heroImage}" class="w-full h-full object-cover shrink-0 snap-center">
+            `;
+
+            // Nav links
+            document.getElementById('modal-nav-kakao').onclick = function() {
+                window.open(`https://map.kakao.com/link/to/${encodeURIComponent(spot.title)},${spot.lat},${spot.lng}`, '_blank');
+            };
+            document.getElementById('modal-nav-google').onclick = function() {
+                window.open(`https://www.google.com/maps/dir/?api=1&destination=${spot.lat},${spot.lng}`, '_blank');
+            };
+            document.getElementById('modal-checkin-btn').onclick = function() {
+                openUserCheckinModal(spot);
+            };
+            document.getElementById('modal-save-btn').onclick = function() {
+                toggleSaveSpot(spot.id);
+            };
+            updateModalSaveButton(spot);
+
+            // Render Check-ins
+            renderModalCheckins(spot);
+
+            document.getElementById('spot-modal').classList.remove('hidden');
+        }
+
+        function closeSpotModal() {
+            document.getElementById('spot-modal').classList.add('hidden');
+        }
+
+        function renderModalCheckins(spot) {
+            const listElem = document.getElementById('modal-checkin-list');
+            const countElem = document.getElementById('modal-checkin-count');
+
+            countElem.innerText = spot.checkins.length;
+
+            if (spot.checkins.length === 0) {
+                listElem.innerHTML = `<p class="text-xs text-slate-400 text-center py-4 bg-purple-50/30 rounded-xl">尚無打卡紀錄，快來按下「我要打卡」成為第一個認證的人吧！</p>`;
+                return;
+            }
+
+            listElem.innerHTML = spot.checkins.map(c => `
+                <div class="bg-purple-50/50 p-3 rounded-2xl border border-purple-100 flex gap-3">
+                    ${c.photo ? `<img src="${c.photo}" class="w-16 h-16 rounded-xl object-cover shrink-0 border border-purple-200">` : ''}
+                    <div class="flex-1 min-w-0 text-xs">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="font-bold text-slate-800">${c.name}</span>
+                            <span class="text-[10px] text-slate-400">${c.date}</span>
+                        </div>
+                        <p class="text-slate-600 line-clamp-2">${c.note}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Fan Check-in Submission
+        function openUserCheckinModal(spot) {
+            activeSpotForCheckin = spot;
+            document.getElementById('checkin-modal-spot-title').innerText = spot.title;
+            document.getElementById('checkin-user-name-display').value = `${currentUser.name} (@${currentUser.handle})`;
+            document.getElementById('user-checkin-modal').classList.remove('hidden');
+        }
+
+        function closeUserCheckinModal() {
+            document.getElementById('user-checkin-modal').classList.add('hidden');
+            document.getElementById('checkin-form').reset();
+            document.getElementById('preview-checkin-photo').classList.add('hidden');
+            uploadedCheckinPhoto = null;
+        }
+
+        function handleUserCheckin(e) {
+            e.preventDefault();
+            if (!activeSpotForCheckin) return;
+
+            const today = new Date().toISOString().split('T')[0];
+            const newCheckin = {
+                id: `ck-${Date.now()}`,
+                name: currentUser.name,
+                userHandle: currentUser.handle,
+                date: today,
+                note: document.getElementById('checkin-note').value,
+                photo: uploadedCheckinPhoto || ''
+            };
+
+            activeSpotForCheckin.checkins.unshift(newCheckin);
+
+            closeUserCheckinModal();
+            renderModalCheckins(activeSpotForCheckin);
+            renderCommunityFeed();
+            updateProfileDashboardStats();
+
+            showToast("成功完成巡禮打卡認證！", "fa-camera-retro");
+        }
+
+        // Initialize on Window Load
+        window.onload = function() {
+            initMap();
+            renderGroupPills();
+            populateGroupSelects();
+            renderSpots();
+            updateSavedSpotsUI();
+
+            // 一開始就詢問定位權限
+            setTimeout(() => requestRealGPS(), 300);
+
+            // Set Header user info
+            document.getElementById('header-user-avatar').src = currentUser.avatar;
+            document.getElementById('header-user-name').innerText = currentUser.name;
+            document.getElementById('friends-badge-count').innerText = currentUser.friends.length;
+        };
+    </script>
+</body>
+</html>
